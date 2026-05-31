@@ -7,7 +7,7 @@ function App() {
   return (
     <>
     <nav>
-      {/* 1. BUTTONS: These ONLY change the state variable when clicked */}
+      /* 1. BUTTONS: These ONLY change the state variable when clicked */
       <button onClick={() => setCurrentFeature('one')}>View Signup Feature</button>
       <button onClick={() => setCurrentFeature('two')}>View ModuleTree Feature</button>
     </nav>
