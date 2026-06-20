@@ -1,5 +1,6 @@
 import Signup from "./components/Signup";
-import ModuleTree from "./components/ModuleTree"
+import ModuleTree from "./components/ModuleTree";
+import Insights from "./components/SentAnalysis/Insights";
 import { useState } from "react";
 
 function App() {

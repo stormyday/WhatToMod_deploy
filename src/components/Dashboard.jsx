@@ -69,7 +69,7 @@ function Dashboard() {
                 color: "#2D4CC8",
             },
             ].map(({ title, desc, tag, color }) => (
-            <div key={title} onClick={() => title === "AcadsPlanner" ? navigate("/moduleTree") : null}
+            <div key={title} onClick={() => title === "AcadsPlanner" ? navigate("/moduleTree") : title == "ModSearch" ? navigate("/insights") : null}
                 className={`bg-white rounded-2xl border border-gray-200 px-7 py-6 
                 hover:border-[#2D4CC8] hover:shadow-md transition cursor-pointer group`}>
                 <div className="flex items-start justify-between mb-3">
