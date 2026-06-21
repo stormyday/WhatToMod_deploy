@@ -109,9 +109,12 @@ async function scrapeModule(page, code) {
       timeout: 30000,
     });
 
+    await page.waitForSelector("#disqus_thread", { timeout: 2000 }).catch(() => null);
+
     const iframeElement = await page
-      .waitForSelector("#disqus_thread iframe[src*='disqus.com']", { timeout: 10000 })
+      .waitForSelector("#disqus_thread iframe[src*='disqus.com']", { timeout: 1500 })
       .catch(() => null);
+    
     if (!iframeElement) return [];
 
     const disqusFrame = await iframeElement.contentFrame();
