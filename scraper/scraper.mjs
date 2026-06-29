@@ -17,7 +17,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 const args = process.argv.slice(2);
 const codesArg = args.find((a) => a.startsWith("--codes="))?.slice(8);
 const limitArg = args.find((a) => a.startsWith("--limit="))?.slice(8);
-const LIMIT = limitArg ? parseInt(limitArg) : 250;
+const LIMIT = limitArg ? parseInt(limitArg) : Infinity;
 
 async function getPrioritizedModuleCodes() {
   if (codesArg) return codesArg.split(",").map((c) => c.trim().toUpperCase());
@@ -43,6 +43,30 @@ async function getPrioritizedModuleCodes() {
   const backlog = allCodes.filter(code => !recentlyScrapedSet.has(code));
   
   return backlog.slice(0, LIMIT);
+}
+
+async function fetchAllRows(table, selectCols, applyFilters) {
+  const PAGE_SIZE = 1000;
+  let allRows = [];
+  let from = 0;
+
+  while (true) {
+    let query = supabase.from(table).select(selectCols);
+    if (applyFilters) query = applyFilters(query);
+    const { data, error } = await query.range(from, from + PAGE_SIZE - 1);
+
+    if (error) {
+      console.error(`[!] Failed fetching ${table} at offset ${from}:`, error.message);
+      break;
+    }
+    if (!data || data.length === 0) break;
+
+    allRows = allRows.concat(data);
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+
+  return allRows;
 }
 
 async function scrapeModule(browser, code) {
@@ -198,21 +222,24 @@ if (targetModules.length === 0) {
   process.exit(0);
 }
 
-const browser = await chromium.launch({ 
+const CONCURRENCY_LIMIT = process.env.GITHUB_ACTIONS ? 2 : 6;
+
+let browser = await chromium.launch({
   headless: true,
   args: ['--disable-dev-shm-usage', '--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu']
 });
 
-const CONCURRENCY_LIMIT = process.env.GITHUB_ACTIONS ? 2 : 6; 
+const RESTART_INTERVAL = 500; // modules
+let sinceRestart = 0;
 
 for (let i = 0; i < targetModules.length; i += CONCURRENCY_LIMIT) {
   const batch = targetModules.slice(i, i + CONCURRENCY_LIMIT);
-  
+
   await Promise.all(batch.map(async (code) => {
     try {
       const result = await scrapeModule(browser, code);
       if (result.isTimeout) {
-        console.warn(`  [NETWORK TIMEOUT] ${code} failed to settle. Skipping write.`);
+        console.warn(`[NETWORK TIMEOUT] ${code} failed to load`);
       } else {
         await pushRawData(result.code, result.reviews, result.hasDisqus);
       }
@@ -220,6 +247,17 @@ for (let i = 0; i < targetModules.length; i += CONCURRENCY_LIMIT) {
       console.error(`[CRITICAL ERROR] Failed processing for ${code}:`, batchError.message);
     }
   }));
+
+  sinceRestart += batch.length;
+  if (sinceRestart >= RESTART_INTERVAL) {
+    console.log("Restarting browser to release accumulated memory...");
+    await browser.close();
+    browser = await chromium.launch({
+      headless: true,
+      args: ['--disable-dev-shm-usage', '--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu']
+    });
+    sinceRestart = 0;
+  }
 
   await new Promise((r) => setTimeout(r, 800));
 }

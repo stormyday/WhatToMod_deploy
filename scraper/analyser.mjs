@@ -11,6 +11,30 @@ const classifier = await pipeline('sentiment-analysis', 'Xenova/distilbert-base-
 const args = process.argv.slice(2);
 const codesArg = args.find((a) => a.startsWith("--codes="))?.slice(8);
 
+async function fetchAllRows(table, selectCols, applyFilters) {
+  const PAGE_SIZE = 1000;
+  let allRows = [];
+  let from = 0;
+
+  while (true) {
+    let query = supabase.from(table).select(selectCols);
+    if (applyFilters) query = applyFilters(query);
+    const { data, error } = await query.range(from, from + PAGE_SIZE - 1);
+
+    if (error) {
+      console.error(`[!] Failed fetching ${table} at offset ${from}:`, error.message);
+      break;
+    }
+    if (!data || data.length === 0) break;
+
+    allRows = allRows.concat(data);
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+
+  return allRows;
+}
+
 async function runAnalysis() {
   console.log("Scanning database for new reviews");
 
@@ -44,73 +68,99 @@ async function runAnalysis() {
   }
 
 
+  let successCount = 0;
+  let failCount = 0;
+
   for (const code of targetCodes) {
-    console.log(`Recalculating: ${code}`);
-    
-    const { data: reviews } = await supabase.from("reviews").select("text").eq("module_code", code);
-    
-    if (!reviews || reviews.length === 0) {
-      console.log(`Adding placeholder for ${code}`);
-      await supabase
-        .from("sentiment")
-        .update({
-          workload_level: 'No data yet', 
-          difficulty_level: 'No data yet',
-          grade_level: 'No dat yet',
-          last_scraped_at: new Date().toISOString() 
-        })
+    try {
+      console.log(`Recalculating: ${code}`);
+
+      const { data: reviews, error: fetchError } = await supabase
+        .from("reviews")
+        .select("text")
         .eq("module_code", code);
-      continue;
-    }
 
-    let positiveCount = 0;
-    const tips = [];
-    
-    for (const r of reviews) {
-      const textSample = r.text.slice(0, 1000); 
-      const out = await classifier(textSample);
-      if (out[0].label === "POSITIVE") positiveCount++;
+      if (fetchError) {
+        console.error(`  [FAIL] Could not fetch reviews for ${code}: ${fetchError.message}`);
+        failCount++;
+        continue;
+      }
 
-      if (r.text.toLowerCase().includes("tip") || r.text.toLowerCase().includes("recommend")) {
-        const sentences = r.text.split(/[.!?\n]/);
-        const tipSentence = sentences.find(s => s.toLowerCase().includes("tip") || s.toLowerCase().includes("recommend"));
-        if (tipSentence && tipSentence.trim().length > 15 && tips.length < 3) {
-          tips.push(tipSentence.trim().replace(/^[-★\s•]+/, ""));
+      if (!reviews || reviews.length === 0) {
+        console.log(`  [OK] No reviews for ${code} — placeholder set`);
+        await supabase
+          .from("sentiment")
+          .update({
+            workload_level: 'No data yet',
+            difficulty_level: 'No data yet',
+            grade_level: 'No dat yet',
+            last_scraped_at: new Date().toISOString()
+          })
+          .eq("module_code", code);
+        successCount++;
+        continue;
+      }
+
+      let positiveCount = 0;
+      const tips = [];
+
+      for (const r of reviews) {
+        const textSample = r.text.slice(0, 1000);
+        const out = await classifier(textSample);
+        if (out[0].label === "POSITIVE") positiveCount++;
+
+        if (r.text.toLowerCase().includes("tip") || r.text.toLowerCase().includes("recommend")) {
+          const sentences = r.text.split(/[.!?\n]/);
+          const tipSentence = sentences.find(s => s.toLowerCase().includes("tip") || s.toLowerCase().includes("recommend"));
+          if (tipSentence && tipSentence.trim().length > 15 && tips.length < 3) {
+            tips.push(tipSentence.trim().replace(/^[-★\s•]+/, ""));
+          }
         }
       }
+
+      const positiveRatio = positiveCount / reviews.length;
+      const fullTextMerged = reviews.map(r => r.text).join(" ").toLowerCase();
+
+      const heavyWorkload = (fullTextMerged.match(/heavy|project|time consuming|murder/g) || []).length >
+                            (fullTextMerged.match(/light|easy|chill/g) || []).length;
+      const highDifficulty = (fullTextMerged.match(/hard|difficult|abstract|mindblown/g) || []).length >
+                            (fullTextMerged.match(/easy|straightforward|understandable/g) || []).length;
+
+      const sentimentPayload = {
+        module_code: code,
+        review_count: reviews.length,
+        workload_level: heavyWorkload ? "Heavy Workload" : "Moderate Workload",
+        workload_score: heavyWorkload ? 0.85 : 0.45,
+        workload_desc: heavyWorkload ? "Be prepared to allocate extra time" : "Breeze but dont be complacent!",
+        difficulty_level: highDifficulty ? "Challenging" : "Adequate",
+        difficulty_score: highDifficulty ? 0.90 : 0.40,
+        difficulty_desc: highDifficulty ? "Complex topics taught that requires deep analytical thinking" : "Content is relatively easy to grasp",
+        grade_level: positiveRatio > 0.6 ? "B+ or Higher" : "B / B- Average",
+        grade_score: positiveRatio,
+        grade_desc: "Average grade based on reviews below",
+        tips: tips.length > 0 ? tips : ["No specific tips, make sure to be consistent in your revisions"],
+        last_scraped_at: new Date().toISOString()
+      };
+
+      const { error: upsertError } = await supabase.from("sentiment").upsert(sentimentPayload, { onConflict: 'module_code' });
+
+      if (upsertError) {
+        console.error(`  [FAIL] Upsert error for ${code}: ${upsertError.message}`);
+        failCount++;
+      } else {
+        console.log(`  [OK] ${code} -> workload=${sentimentPayload.workload_level}, difficulty=${sentimentPayload.difficulty_level}, grade=${sentimentPayload.grade_level}`);
+        successCount++;
+      }
+
+    } catch (err) {
+      console.error(`  [CRITICAL] Unexpected error on ${code}, skipping: ${err.message}`);
+      failCount++;
     }
-
-    const positiveRatio = positiveCount / reviews.length;
-    const fullTextMerged = reviews.map(r => r.text).join(" ").toLowerCase();
-    
-    const heavyWorkload = (fullTextMerged.match(/heavy|project|time consuming|murder/g) || []).length > 
-                          (fullTextMerged.match(/light|easy|chill/g) || []).length;
-    const highDifficulty = (fullTextMerged.match(/hard|difficult|abstract|mindblown/g) || []).length > 
-                           (fullTextMerged.match(/easy|straightforward|understandable/g) || []).length;
-
-    const sentimentPayload = {
-      module_code: code,
-      review_count: reviews.length,
-      workload_level: heavyWorkload ? "Heavy Workload" : "Moderate Workload",
-      workload_score: heavyWorkload ? 0.85 : 0.45,
-      workload_desc: heavyWorkload ? "Be prepared to allocate extra time" : "Breeze but dont be complacent!",
-      difficulty_level: highDifficulty ? "Challenging" : "Adequate",
-      difficulty_score: highDifficulty ? 0.90 : 0.40,
-      difficulty_desc: highDifficulty ? "Complex topics taught that requires deep analytical thinking" : "Content is relatively easy to grasp",
-      grade_level: positiveRatio > 0.6 ? "B+ or Higher" : "B / B- Average",
-      grade_score: positiveRatio,
-      grade_desc: "Average grade based on reviews below",
-      tips: tips.length > 0 ? tips : ["No specific tips, make sure to be consistent in your revisions"],
-      last_scraped_at: new Date().toISOString() // Keeps tracker locked with the reviews table
-    };
-
-    const { error } = await supabase.from("sentiment").upsert(sentimentPayload, { onConflict: 'module_code' });
-    if (error) console.error(`Summary DB Upsert Error (${code}):`, error.message);
 
     if (global.gc) global.gc();
   }
 
-  console.log("Success: All modules are updated");
-}
+    console.log(`Analysis complete. ${successCount} succeeded, ${failCount} failed, out of ${targetCodes.length} total.`);
+  }
 
 runAnalysis();
