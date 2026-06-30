@@ -184,11 +184,11 @@ export default function ModuleTreePage() {
                     Back
                 </button>
             </div>
-            <div style={{ fontFamily: 'sans-serif', padding: '20px', backgroundColor: '#F7F6F2', position: 'relative', width: '100%' }}>
+            <div style={{ fontFamily: 'sans-serif', padding: '20px', paddingRight: '360px', backgroundColor: '#F7F6F2', position: 'relative', width: '100%' }}>
                 <SelectMajor selectedMajor={selectedMajor} onMajorChange={setSelectedMajor} />
  
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '24px', width: '100%' }}>
-                    <div style={{ flex: 1, minWidth: 0, width: '100%' }}>
+                    <div style={{ flex: 1, minWidth: 0, maxWidth: '100%', width: '100%' }}>
  
                         {selectedMajor !== 'Empty-Major' ? (
                             <ModuleTree
