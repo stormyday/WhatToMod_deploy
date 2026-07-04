@@ -137,11 +137,51 @@ export default function ModuleTreePage() {
         setSelectedMods(current => (current.includes(moduleId) ? current : [...current, moduleId]));
     };
 
+    const moveModulesToBasket = (moduleIds = []) => {
+        const uniqueModuleIds = moduleIds.filter(Boolean);
+
+        if (uniqueModuleIds.length === 0) {
+            return;
+        }
+
+        setSelectedMods(current => {
+            const next = current.filter(id => !uniqueModuleIds.includes(id));
+            return [...next, ...uniqueModuleIds];
+        });
+    };
+
+    const handleRemoveModuleFromPlanner = (moduleId) => {
+        if (!moduleId) {
+            return;
+        }
+
+        setPlannerModules(current => {
+            const nextPlannerModules = Object.fromEntries(
+                Object.entries(current).map(([semester, semesterModules]) => [
+                    semester,
+                    (semesterModules ?? []).filter(id => id !== moduleId)
+                ])
+            );
+
+            return nextPlannerModules;
+        });
+
+        moveModulesToBasket([moduleId]);
+    };
+
     const handleClearSemesterModules = (semester) => {
+        const semesterModules = plannerModules[semester] ?? [];
+
+        if (semesterModules.length === 0) {
+            return;
+        }
+
         setPlannerModules(current => ({
             ...current,
             [semester]: []
         }));
+
+        moveModulesToBasket(semesterModules);
     };
  
     const moduleTreeState = useMemo(() => ({ selectedMajor, selectedMods }), [selectedMajor, selectedMods]);
@@ -320,6 +360,7 @@ export default function ModuleTreePage() {
                                                         isSelected={selectedMods.includes(moduleId)}
                                                         isCompulsory={isCompulsoryInPlanner}
                                                         onToggle={() => handleToggleModule(moduleId)}
+                                                        onRemove={() => handleRemoveModuleFromPlanner(moduleId)}
                                                         moduleTreeState={moduleTreeState}
                                                         fullWidth
                                                     />

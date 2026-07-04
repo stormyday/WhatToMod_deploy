@@ -33,6 +33,7 @@ export default function SelectMajor({ selectedMajor, onMajorChange }) {
                 <option value="Artificial Intelligence" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Artificial Intelligence</option>
                 <option value="Business Artificial Intelligence Systems" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Business Artificial Intelligence Systems</option>
                 <option value="BZA-Major" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Business Analytics</option>
+                <option value="Computer Engineering" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Computer Engineering</option>
                 <option value="Computer Science" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Computer Science</option>
                 <option value="Information Security" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Information Security</option>
                 <option value="DSA-Major" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Data Science & Analytics (Click This Option for Optimised Demo)</option>

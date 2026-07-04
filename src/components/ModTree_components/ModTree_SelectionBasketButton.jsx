@@ -62,7 +62,7 @@ async function lookupModule(moduleCode) {
     return mod;
 }
 
-export default function SelectionBasketButton({ moduleCode, isSelected, isCompulsory, onToggle, moduleTreeState = null, fullWidth = false }) {
+export default function SelectionBasketButton({ moduleCode, isSelected, isCompulsory, onToggle, onRemove, moduleTreeState = null, fullWidth = false }) {
     const [matchedModule, setMatchedModule] = useState(null);
     const [loadingModule, setLoadingModule] = useState(true);
     const [sentiment, setSentiment] = useState(null);
@@ -115,14 +115,15 @@ export default function SelectionBasketButton({ moduleCode, isSelected, isCompul
                 disabled
                 style={{
                     width: fullWidth ? '100%' : 'auto',
-                    padding: '16px',
-                    borderRadius: '12px',
+                    padding: '10px 12px',
+                    borderRadius: '10px',
                     border: '1px solid rgba(0,0,0,0.08)',
                     backgroundColor: '#F7F6F2',
                     color: '#6B7280',
                     textAlign: 'left',
                     opacity: 0.7,
-                    cursor: 'not-allowed'
+                    cursor: 'not-allowed',
+                    fontSize: '9px'
                 }}
             >
                 Loading module…
@@ -136,13 +137,14 @@ export default function SelectionBasketButton({ moduleCode, isSelected, isCompul
                 disabled
                 style={{
                     width: fullWidth ? '100%' : 'auto',
-                    padding: '16px',
-                    borderRadius: '12px',
+                    padding: '10px 12px',
+                    borderRadius: '10px',
                     border: '1px solid rgba(0,0,0,0.08)',
                     backgroundColor: '#F7F6F2',
                     color: '#9CA3AF',
                     textAlign: 'left',
-                    cursor: 'not-allowed'
+                    cursor: 'not-allowed',
+                    fontSize: '9px'
                 }}
             >
                 Unknown module
@@ -169,12 +171,12 @@ export default function SelectionBasketButton({ moduleCode, isSelected, isCompul
             const pct = Math.round(Math.max(0, Math.min(1, aspect.score)) * 100);
             const barColor = label === 'Workload' ? '#D85A30' : label === 'Difficulty' ? '#185FA5' : '#1D9E75';
             return (
-                <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', fontWeight: '600', color: '#42413F' }}>
+                <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '8px', fontWeight: '600', color: '#42413F' }}>
                         <span>{label}</span>
                         <span>{pct}%</span>
                     </div>
-                    <div style={{ width: '100%', height: '8px', borderRadius: '999px', backgroundColor: '#E8E6E3', overflow: 'hidden' }}>
+                    <div style={{ width: '100%', height: '6px', borderRadius: '999px', backgroundColor: '#E8E6E3', overflow: 'hidden' }}>
                         <div style={{ width: `${pct}%`, height: '100%', backgroundColor: barColor }} />
                     </div>
                 </div>
@@ -196,8 +198,8 @@ const linkState = moduleTreeState ? {
             onDragStart={handleDragStart}
             style={{
                 width: fullWidth ? '100%' : 'auto',
-                padding: '10px',
-                borderRadius: '14px',
+                padding: '8px 9px',
+                borderRadius: '12px',
                 border: `2px solid ${borderColor}`,
                 backgroundColor: bgColor,
                 color: textColor,
@@ -208,15 +210,15 @@ const linkState = moduleTreeState ? {
                 position: 'relative',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '6px'
+                gap: '4px'
             }}
         >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                 <Link
                     to={`/insights/${encodeURIComponent(moduleCode)}`}
                     state={linkState}
                     style={{
-                        fontSize: '10px',
+                        fontSize: '9px',
                         fontWeight: '750',
                         color: '#0000FF',
                         textDecoration: 'none',
@@ -224,7 +226,8 @@ const linkState = moduleTreeState ? {
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        lineHeight: 1.2
                     }}
                 >
                     <u>{matchedModule.label}</u>
@@ -233,39 +236,45 @@ const linkState = moduleTreeState ? {
                     type="button"
                     onClick={(event) => {
                         event.stopPropagation();
-                        onToggle?.();
+                        if (onRemove) {
+                            onRemove();
+                        } else {
+                            onToggle?.();
+                        }
                     }}
                     style={{
                         border: 'none',
                         background: 'rgba(255,255,255,0.9)',
                         color: '#6b7280',
-                        width: '22px',
-                        height: '22px',
+                        width: '18px',
+                        height: '18px',
                         borderRadius: '999px',
                         cursor: 'pointer',
                         fontWeight: '700',
                         display: 'grid',
                         placeItems: 'center normal',
                         boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-                        fontSize: '10px',
+                        fontSize: '9px',
+                        padding: 0,
+                        flexShrink: 0
                     }}
                 >
                     X
                 </button>
             </div>
             {matchedModule.description && (
-                <div style={{ fontSize: '9px', color: '#5F5E5A', lineHeight: '1.4' }}>
+                <div style={{ fontSize: '8px', color: '#5F5E5A', lineHeight: '1.25', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                     {matchedModule.description}
                 </div>
             )}
             {isLoadingSentiment && (
-                <div style={{ fontSize: '9px', color: '#7A766F' }}>
+                <div style={{ fontSize: '8px', color: '#7A766F' }}>
                     Loading review insights...
                 </div>
             )}
             {renderSentimentRows()}
             {sentiment && (
-                <div style={{ fontSize: '8px', color: '#7A766F' }}>
+                <div style={{ fontSize: '7px', color: '#7A766F' }}>
                     Based on {sentiment.reviewCount} reviews
                 </div>
             )}
