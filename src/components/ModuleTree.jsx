@@ -12,6 +12,20 @@ function createEmptyPlannerModules(labels = SEMESTER_LABELS) {
     return Object.fromEntries(labels.map(label => [label, []]));
 }
 
+function collectNestedModules(node, db) {
+    if (!node || typeof node !== 'object') {
+        return;
+    }
+
+    if (typeof node.id === 'string' && node.id && !db[node.id]) {
+        db[node.id] = node;
+    }
+
+    if (Array.isArray(node.children)) {
+        node.children.forEach((child) => collectNestedModules(child, db));
+    }
+}
+
 // Converts a raw Supabase module row back into the shape the rest of the app expects
 function rowToModule(row) {
     return {
@@ -27,8 +41,6 @@ function rowToModule(row) {
         pillarLabel: row.pillar_label ?? undefined,
         isLevel4000Pathway: row.is_level4000_pathway,
         options: row.options ?? undefined,
-        optionA: row.option_a ?? undefined,
-        optionB: row.option_b ?? undefined,
     };
 }
  
@@ -36,18 +48,9 @@ function rowToModule(row) {
 function buildDatabase(modules) {
     const db = {};
     modules.forEach(mod => {
-        if (!db[mod.id]) db[mod.id] = mod;
- 
-        if (mod.isPillar && mod.options) {
-            mod.options.forEach(opt => {
-                if (!db[opt.id]) db[opt.id] = opt;
-            });
-        }
- 
-        if (mod.isLevel4000Pathway) {
-            mod.optionA?.basket1?.options?.forEach(opt => { if (!db[opt.id]) db[opt.id] = opt; });
-            mod.optionA?.basket2?.options?.forEach(opt => { if (!db[opt.id]) db[opt.id] = opt; });
-            mod.optionB?.options?.forEach(opt => { if (!db[opt.id]) db[opt.id] = opt; });
+        collectNestedModules(mod, db);
+        if (Array.isArray(mod.options)) {
+            mod.options.forEach((option) => collectNestedModules(option, db));
         }
     });
     return db;
@@ -96,13 +99,15 @@ export default function ModuleTreePage() {
     useEffect(() => {
         const savedState = location.state?.moduleTreeState;
         if (savedState) {
-            setSelectedMajor(savedState.selectedMajor ?? 'Empty-Major');
-            setSelectedMods(Array.isArray(savedState.selectedMods) ? savedState.selectedMods : []);
-            if (typeof savedState.scrollPosition === 'number') {
-                window.requestAnimationFrame(() =>
-                    window.scrollTo({ top: savedState.scrollPosition })
-                );
-            }
+            const restoreFrame = window.requestAnimationFrame(() => {
+                setSelectedMajor(savedState.selectedMajor ?? 'Empty-Major');
+                setSelectedMods(Array.isArray(savedState.selectedMods) ? savedState.selectedMods : []);
+                if (typeof savedState.scrollPosition === 'number') {
+                    window.scrollTo({ top: savedState.scrollPosition });
+                }
+            });
+
+            return () => window.cancelAnimationFrame(restoreFrame);
         }
     }, [location.state]);
  

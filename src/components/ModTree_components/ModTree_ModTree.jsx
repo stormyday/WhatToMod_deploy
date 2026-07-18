@@ -1,38 +1,15 @@
-import React from 'react';
+import { useSyncExternalStore } from 'react';
 import ModuleButton from './ModTree_ModButton';
 import PillarDropdown from './ModTree_PillarMod';
-import Level4000Pathway from './ModTree_DSA4K';
+import Level4000Pathway from './ModTree_MultiLayerButton';
+import {
+    analyzeLevel4000Pathway,
+    getLevel4000ActiveTracksVersion,
+    subscribeLevel4000ActiveTracks,
+} from './ModTree_Level4000Traversal';
 
 function satisfiesLevel4000Pathway(moduleConfig, selectedMods) {
-    const basketCount = Math.max(1, Number(moduleConfig?.number_of_basket ?? 2));
-
-    if (Array.isArray(moduleConfig?.pathways) && moduleConfig.pathways.length > 0) {
-        return moduleConfig.pathways.some((pathway) => {
-            if (Array.isArray(pathway?.baskets)) {
-                return pathway.baskets.slice(0, basketCount).every((basket) => basket?.options?.some((option) => selectedMods.includes(option.id)));
-            }
-
-            if (Array.isArray(pathway?.options)) {
-                return pathway.options.some((option) => selectedMods.includes(option.id));
-            }
-
-            return false;
-        });
-    }
-
-    const basketModules = Array.isArray(moduleConfig?.optionA?.baskets)
-        ? moduleConfig.optionA.baskets
-        : Object.entries(moduleConfig?.optionA || {})
-            .filter(([key, value]) => key.startsWith('basket') && value && typeof value === 'object')
-            .sort(([left], [right]) => Number(left.replace(/\D/g, '')) - Number(right.replace(/\D/g, '')))
-            .map(([, value]) => value);
-
-    const courseworkComplete = basketModules.slice(0, basketCount).every((basket) => basket?.options?.some((option) => selectedMods.includes(option.id)));
-    const honoursProjectComplete = Array.isArray(moduleConfig?.optionB?.options)
-        ? moduleConfig.optionB.options.some((option) => selectedMods.includes(option.id))
-        : false;
-
-    return courseworkComplete || honoursProjectComplete;
+    return analyzeLevel4000Pathway(moduleConfig, selectedMods).complete;
 }
 
 function isModuleSelected(moduleId, selectedMods) {
@@ -71,6 +48,14 @@ function getLayerCompletionState(layer, selectedMods) {
 }
 
 export default function ModuleTree({ modulesByLvl, selectedMods, selectedMajor, moduleTreeState, onToggleModule }) {
+    const level4000ActiveTracksVersion = useSyncExternalStore(
+        subscribeLevel4000ActiveTracks,
+        getLevel4000ActiveTracksVersion,
+        getLevel4000ActiveTracksVersion
+    );
+
+    void level4000ActiveTracksVersion;
+
     return (
         <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'stretch', gap: '10px', width: '100%', overflowX: 'auto', overflowY: 'hidden' }}>
             {modulesByLvl.map((layer, layerIndex) => {

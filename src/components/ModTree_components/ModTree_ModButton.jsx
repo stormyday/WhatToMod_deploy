@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../supabaseClient';
 import { fetchSentiment } from '../../utils/api';
@@ -23,9 +23,23 @@ function rowToModule(row) {
         pillarLabel: row.pillar_label ?? undefined,
         isLevel4000Pathway: row.is_level4000_pathway,
         options: row.options ?? undefined,
-        optionA: row.option_a ?? undefined,
-        optionB: row.option_b ?? undefined,
     };
+}
+
+function collectNestedModules(node, collected = new Set()) {
+    if (!node || typeof node !== 'object') {
+        return collected;
+    }
+
+    if (typeof node.id === 'string' && node.id) {
+        collected.add(node);
+    }
+
+    if (Array.isArray(node.children)) {
+        node.children.forEach((child) => collectNestedModules(child, collected));
+    }
+
+    return collected;
 }
 
 async function lookupModule(moduleCode) {
@@ -39,22 +53,17 @@ async function lookupModule(moduleCode) {
         .single();
 
     if (error || !data) {
-        // Also search inside pillar options – fetch all and scan
-        const { data: all } = await supabase.from('modules').select('id,options,option_a,option_b');
+        // Search nested options trees recursively so leaf modules remain discoverable.
+        const { data: all } = await supabase.from('modules').select('id,options');
         let found = null;
         for (const row of all ?? []) {
             if (row.options) {
-                const match = row.options.find(o => o.id === key);
-                if (match) { found = match; break; }
-            }
-            if (row.option_a) {
-                const b1 = row.option_a.basket1?.options?.find(o => o.id === key);
-                const b2 = row.option_a.basket2?.options?.find(o => o.id === key);
-                if (b1 || b2) { found = b1 ?? b2; break; }
-            }
-            if (row.option_b) {
-                const match = row.option_b.options?.find(o => o.id === key);
-                if (match) { found = match; break; }
+                const nested = [...collectNestedModules({ children: row.options })];
+                const match = nested.find(o => o.id === key);
+                if (match) {
+                    found = match;
+                    break;
+                }
             }
         }
         moduleLookupCache[key] = found ?? null;
@@ -114,10 +123,17 @@ export default function ModuleButton({ moduleCode, isSelected, isCompulsory, mod
 
         const cacheKey = moduleCode.toUpperCase()
         const cached = sentimentCache[cacheKey]
-        if (cached) { setSentiment(cached); return; }
+        if (cached) {
+            const frame = window.requestAnimationFrame(() => setSentiment(cached))
+            return () => window.cancelAnimationFrame(frame)
+        }
 
         let isMounted = true
-        setIsLoadingSentiment(true)
+        const loadingFrame = window.requestAnimationFrame(() => {
+            if (isMounted) {
+                setIsLoadingSentiment(true)
+            }
+        })
 
         fetchSentiment(cacheKey)
             .then((data) => {
@@ -128,7 +144,10 @@ export default function ModuleButton({ moduleCode, isSelected, isCompulsory, mod
             })
             .finally(() => { if (isMounted) setIsLoadingSentiment(false) })
 
-        return () => { isMounted = false }
+        return () => {
+            isMounted = false
+            window.cancelAnimationFrame(loadingFrame)
+        }
     }, [isHovered, moduleCode, sentiment])
 
     if (loadingModule) {
