@@ -1,0 +1,133 @@
+.modtree-search-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.modtree-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f1efe8;
+  border: 1.5px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  padding: 0 14px;
+  height: 50px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.modtree-search-bar:focus-within {
+  border-color: #185fa5;
+  background: #ffffff;
+}
+
+.modtree-search-icon {
+  width: 18px;
+  height: 18px;
+  color: #888780;
+  flex-shrink: 0;
+}
+
+.modtree-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  color: #1a1a18;
+  outline: none;
+  font-family: "Inter", "Helvetica Neue", system-ui, sans-serif;
+}
+
+.modtree-search-input::placeholder {
+  color: #888780;
+}
+
+.modtree-search-clear {
+  background: none;
+  border: none;
+  color: #888780;
+  font-size: 14px;
+  padding: 2px 4px;
+}
+
+.modtree-search-clear:hover {
+  color: #1a1a18;
+}
+
+.modtree-search-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top-color: #185fa5;
+  border-radius: 50%;
+  animation: modtree-spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes modtree-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.modtree-suggestions {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  list-style: none;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.modtree-suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.modtree-suggestion-item:hover {
+  background: #f1efe8;
+}
+
+.modtree-suggestion-code {
+  font-size: 13px;
+  font-weight: 700;
+  color: #185fa5;
+  min-width: 76px;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+}
+
+.modtree-suggestion-title {
+  font-size: 13px;
+  color: #1a1a18;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.modtree-suggestion-source {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.modtree-suggestion-source.modtree {
+  color: #1d9e75;
+  background: #e1f5ee;
+}
+
+.modtree-suggestion-source.fallback {
+  color: #d85a30;
+  background: #faece7;
+}

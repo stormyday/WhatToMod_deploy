@@ -3,6 +3,7 @@ import ModuleButton from './ModTree_ModButton';
 
 export default function PillarDropdown({ pillarModule, selectedMods, selectedMajor, moduleTreeState, onToggleModule }) {
     const [isOpen, setIsOpen] = useState(false);
+    const compulsoryFor = pillarModule.compulsoryFor ?? pillarModule.compulsory_for ?? [];
     const [activeOptionId, setActiveOptionId] = useState(() => {
         const initialOption = pillarModule.options.find(opt => selectedMods.includes(opt.id));
         return initialOption?.id ?? null;
@@ -67,10 +68,10 @@ export default function PillarDropdown({ pillarModule, selectedMods, selectedMaj
                     {pillarModule.options.map((option) => {
                         const isSelected = selectedMods.includes(option.id);
                         // Inherit compulsory status from the pillar, resolved against the active major.
-                        // Falls back gracefully if selectedMajor is not provided (e.g. called from DSA4K).
+                        // Falls back gracefully if selectedMajor is not provided.
                         const isCompulsory = selectedMajor
-                            ? pillarModule.compulsoryFor?.includes(selectedMajor)
-                            : pillarModule.compulsoryFor?.length > 0;
+                            ? compulsoryFor.includes(selectedMajor)
+                            : compulsoryFor.length > 0;
                         return (
                             <ModuleButton
                                 key={option.id}

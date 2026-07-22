@@ -1,38 +1,16 @@
-import React from 'react';
+import { useSyncExternalStore } from 'react';
 import ModuleButton from './ModTree_ModButton';
 import PillarDropdown from './ModTree_PillarMod';
-import Level4000Pathway from './ModTree_DSA4K';
+import RequirementGroup from './ModTree_RequirementGroup';
+import Level4000Pathway from './ModTree_MultiLayerButton';
+import {
+    analyzeLevel4000Pathway,
+    getLevel4000ActiveTracksVersion,
+    subscribeLevel4000ActiveTracks,
+} from './ModTree_Level4000Traversal';
 
 function satisfiesLevel4000Pathway(moduleConfig, selectedMods) {
-    const basketCount = Math.max(1, Number(moduleConfig?.number_of_basket ?? 2));
-
-    if (Array.isArray(moduleConfig?.pathways) && moduleConfig.pathways.length > 0) {
-        return moduleConfig.pathways.some((pathway) => {
-            if (Array.isArray(pathway?.baskets)) {
-                return pathway.baskets.slice(0, basketCount).every((basket) => basket?.options?.some((option) => selectedMods.includes(option.id)));
-            }
-
-            if (Array.isArray(pathway?.options)) {
-                return pathway.options.some((option) => selectedMods.includes(option.id));
-            }
-
-            return false;
-        });
-    }
-
-    const basketModules = Array.isArray(moduleConfig?.optionA?.baskets)
-        ? moduleConfig.optionA.baskets
-        : Object.entries(moduleConfig?.optionA || {})
-            .filter(([key, value]) => key.startsWith('basket') && value && typeof value === 'object')
-            .sort(([left], [right]) => Number(left.replace(/\D/g, '')) - Number(right.replace(/\D/g, '')))
-            .map(([, value]) => value);
-
-    const courseworkComplete = basketModules.slice(0, basketCount).every((basket) => basket?.options?.some((option) => selectedMods.includes(option.id)));
-    const honoursProjectComplete = Array.isArray(moduleConfig?.optionB?.options)
-        ? moduleConfig.optionB.options.some((option) => selectedMods.includes(option.id))
-        : false;
-
-    return courseworkComplete || honoursProjectComplete;
+    return analyzeLevel4000Pathway(moduleConfig, selectedMods).complete;
 }
 
 function isModuleSelected(moduleId, selectedMods) {
@@ -56,6 +34,13 @@ function getLayerCompletionState(layer, selectedMods) {
     layer.filter(mod => !mod.orGroupId).forEach((mod) => {
         if (mod.isPillar) {
             requirements.push(Boolean(mod.options?.some(option => isModuleSelected(option.id, selectedMods))));
+        } else if (mod.isRequirementGroup) {
+            const pillars = Array.isArray(mod.RequirementsPillar) ? mod.RequirementsPillar : [];
+            requirements.push(
+                pillars.length > 0
+                && pillars.every((pillar) => Array.isArray(pillar.options)
+                    && pillar.options.some((option) => isModuleSelected(option.id, selectedMods)))
+            );
         } else if (mod.isSingleModulePillar) {
             requirements.push(isModuleSelected(mod.id, selectedMods));
         } else if (mod.isLevel4000Pathway) {
@@ -70,9 +55,106 @@ function getLayerCompletionState(layer, selectedMods) {
     };
 }
 
-export default function ModuleTree({ modulesByLvl, selectedMods, selectedMajor, moduleTreeState, onToggleModule }) {
+export default function ModuleTree({
+    modulesByLvl,
+    selectedMods,
+    selectedMajor,
+    moduleTreeState,
+    onToggleModule,
+    customModules = [],
+    onRemoveCustomModule,
+}) {
+    const level4000ActiveTracksVersion = useSyncExternalStore(
+        subscribeLevel4000ActiveTracks,
+        getLevel4000ActiveTracksVersion,
+        getLevel4000ActiveTracksVersion
+    );
+
+    void level4000ActiveTracksVersion;
+
+    const columnStyle = {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        alignItems: 'center',
+        flex: '0 0 205px',
+        minWidth: '205px',
+        padding: '8px 4px',
+        borderRadius: '10px',
+        transition: 'background-color 0.15s ease',
+        boxSizing: 'border-box',
+    };
+
+    const columnTitleStyle = {
+        color: '#1a1a18',
+        textAlign: 'center',
+        fontWeight: '600',
+        fontSize: '12px',
+    };
+
+    const renderCustomColumn = () => (
+        <div
+            style={{
+                ...columnStyle,
+                backgroundColor: 'transparent',
+            }}
+        >
+            <div style={columnTitleStyle}>
+                User Added Modules
+            </div>
+
+            <div
+                style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flex: 1,
+                    width: '100%',
+                }}
+            >
+                {customModules.length === 0 ? (
+                    <div
+                        style={{
+                            border: '1px dashed rgba(0,0,0,0.12)',
+                            borderRadius: '10px',
+                            padding: '12px 10px',
+                            backgroundColor: '#f9fafb',
+                            color: '#6b7280',
+                            fontSize: '12px',
+                            textAlign: 'center',
+                            lineHeight: 1.45,
+                            width: '100%',
+                        }}
+                    >
+                        Search above to add modules here.
+                    </div>
+                ) : (
+                    customModules.map((customModule) => {
+                        const moduleCode = customModule.moduleCode;
+                        const isSelected = selectedMods.includes(moduleCode);
+
+                        return (
+                            <div key={moduleCode} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '34px', width: '100%' }}>
+                                <ModuleButton
+                                    moduleCode={moduleCode}
+                                    isSelected={isSelected}
+                                    isCompulsory={false}
+                                    moduleTreeState={moduleTreeState}
+                                    compact
+                                    onToggle={() => onToggleModule(moduleCode)}
+                                />
+                            </div>
+                        );
+                    })
+                )}
+            </div>
+        </div>
+    );
+
     return (
-        <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'stretch', gap: '10px', width: '100%', overflowX: 'auto', overflowY: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'stretch', gap: '6px', width: '100%', overflowX: 'auto', overflowY: 'hidden', minWidth: '0' }}>
             {modulesByLvl.map((layer, layerIndex) => {
                 const renderedGroups = new Set();
                 const { layerComplete } = getLayerCompletionState(layer, selectedMods);
@@ -81,19 +163,16 @@ export default function ModuleTree({ modulesByLvl, selectedMods, selectedMajor, 
                     <div
                         key={layerIndex}
                         style={{
-                            display: 'flex', flexDirection: 'column', gap: '16px',
-                            alignItems: 'center', flex: 1, minWidth: 0,
+                            ...columnStyle,
                             backgroundColor: layerComplete ? '#E1F5EE' : 'transparent',
-                            padding: '10px', borderRadius: '10px',
-                            transition: 'background-color 0.15s ease'
                         }}
                     >
-                        <div style={{ color: '#1a1a18', textAlign: 'center', fontWeight: '600', fontSize: '12px' }}>
+                        <div style={columnTitleStyle}>
                             Level {(layerIndex + 1)}000 Modules
                         </div>
 
                         <div style={{
-                            display: 'flex', flexDirection: 'column', gap: '16px',
+                            display: 'flex', flexDirection: 'column', gap: '12px',
                             alignItems: 'center', justifyContent: 'center', flex: 1, width: '100%'
                         }}>
                             {layer.map((modInTree) => {
@@ -107,6 +186,21 @@ export default function ModuleTree({ modulesByLvl, selectedMods, selectedMajor, 
                                         <div key={modInTree.id} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '34px' }}>
                                             <PillarDropdown
                                                 pillarModule={modInTree}
+                                                selectedMods={selectedMods}
+                                                selectedMajor={selectedMajor}
+                                                moduleTreeState={moduleTreeState}
+                                                onToggleModule={onToggleModule}
+                                            />
+                                        </div>
+                                    );
+                                }
+
+                                // ── isRequirementGroup ───────────────────────────────
+                                if (modInTree.isRequirementGroup) {
+                                    return (
+                                        <div key={modInTree.id} style={{ width: '100%' }}>
+                                            <RequirementGroup
+                                                nodeData={modInTree}
                                                 selectedMods={selectedMods}
                                                 selectedMajor={selectedMajor}
                                                 moduleTreeState={moduleTreeState}
@@ -191,7 +285,7 @@ export default function ModuleTree({ modulesByLvl, selectedMods, selectedMajor, 
 
                                 // ── Plain module ──────────────────────────────────────
                                 return (
-                                    <div key={modInTree.id} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '40px' }}>
+                                    <div key={modInTree.id} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '34px' }}>
                                         <ModuleButton
                                             moduleCode={modInTree.id}
                                             isSelected={selectedMods.includes(modInTree.id)}
@@ -207,6 +301,8 @@ export default function ModuleTree({ modulesByLvl, selectedMods, selectedMajor, 
                     </div>
                 );
             })}
+
+            {renderCustomColumn()}
         </div>
     );
 }
