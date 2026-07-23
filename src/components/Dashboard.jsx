@@ -44,7 +44,7 @@ function Dashboard() {
         {/* Page content */}
         <main className="max-w-5xl mx-auto px-8 py-12">
         <div className="mb-10">
-            <h2 className="text-2xl font-bold text-[#2564F8]">What would you like to plan today?</h2>
+            <h2 className="text-2xl font-bold text-[#2564F8]">Your One-Stop Academic Planner</h2>
             <p className="text-sm text-gray-500 mt-1">{session?.user?.email}</p>
         </div>
 
@@ -69,13 +69,13 @@ function Dashboard() {
                 color: "#2D4CC8",
             },
             {
-                title: "Friend(ly)Planner",
-                desc: "Plan timetables with your friends!",
-                tag: "Social",
+                title: "Progress Tracker",
+                desc: "See how far you've come!",
+                tag: "Progress",
                 color: "#2D4CC8",
             },
             ].map(({ title, desc, tag, color }) => (
-            <div key={title} onClick={() => title === "AcadsPlanner" ? navigate("/moduleTree") : title == "ModSearch" ? navigate("/insights") : null}
+            <div key={title} onClick={() => title === "AcadsPlanner" ? navigate("/moduleTree") : title == "ModSearch" ? navigate("/insights") : title === "GPA Calculator" ? navigate("/gpaCalculator") : null}
                 className={`bg-white rounded-2xl border border-gray-200 px-7 py-6 
                 hover:border-[#2D4CC8] hover:shadow-md transition cursor-pointer group`}>
                 <div className="flex items-start justify-between mb-3">

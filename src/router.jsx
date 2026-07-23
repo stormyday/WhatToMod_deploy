@@ -7,6 +7,7 @@ import ModuleTree from "./components/ModuleTree";
 import Insights from "./components/SentAnalysis/Insights"
 import LecturerPage from "./components/SentAnalysis/LecturerPage";
 import ProfilePage from "./components/ProfilePage";
+import GPACalculator from "./components/GPACalculator";
 
 export const router = createBrowserRouter([
     {path: "/", element: <Navigate to="/signin" replace />},
@@ -17,5 +18,6 @@ export const router = createBrowserRouter([
     {path: "/insights", element: <ProtectedRoute><Insights /></ProtectedRoute>},
     {path: "/insights/:moduleCode", element: <ProtectedRoute><Insights /></ProtectedRoute>},
     {path: "/professor/:name", element: <ProtectedRoute><LecturerPage /></ProtectedRoute>},
-    {path: "/profilePage", element: <ProtectedRoute><ProfilePage /></ProtectedRoute>}
+    {path: "/profilePage", element: <ProtectedRoute><ProfilePage /></ProtectedRoute>},
+    {path: "/gpaCalculator", element: <ProtectedRoute><GPACalculator /></ProtectedRoute>}
 ]);

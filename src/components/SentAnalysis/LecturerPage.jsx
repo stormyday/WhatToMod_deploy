@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { LuFrown } from "react-icons/lu";
+import { LuFrown, LuUser } from "react-icons/lu";
 import { useProfessorProfile } from "../../hooks/useProfessorProfile";
 import { SkeletonLoader } from "./SkeletonLoader";
 import "./SentDash.css";
@@ -77,9 +77,9 @@ export default function LecturerPage() {
         </div>
         <div className="header-inner">
           <div className="logo-row">
+            <LuUser size={20} />
             <h1 className="logo-text">{name}</h1>
           </div>
-          <p className="tagline">Lecturer profile — modules taught &amp; mentions in reviews</p>
         </div>
       </header>
 
