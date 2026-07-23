@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { UserAuth } from '../context/AuthContext';
 import { normalizeModuleCode } from './ModTree_components/modTreeModuleData';
 import SelectMajor from './ModTree_components/ModTree_SelectMajor';
 import ModuleTree from './ModTree_components/ModTree_ModTree';
@@ -120,10 +121,68 @@ function normalizeCustomModuleRecord(module) {
         moduleCode,
     };
 }
+
+function normalizePlannerModules(plannerModules) {
+    const emptyPlanner = createEmptyPlannerModules();
+
+    if (!plannerModules || typeof plannerModules !== 'object') {
+        return emptyPlanner;
+    }
+
+    return Object.fromEntries(
+        Object.keys(emptyPlanner).map((semester) => {
+            const savedModules = Array.isArray(plannerModules[semester]) ? plannerModules[semester] : [];
+            return [
+                semester,
+                savedModules
+                    .map(normalizeModuleCode)
+                    .filter(Boolean),
+            ];
+        })
+    );
+}
+
+function buildPersistedModTreeState({
+    selectedMajor,
+    selectedMods,
+    customModules,
+    plannerModules,
+}) {
+    return {
+        selectedMajor: selectedMajor ?? 'Empty-Major',
+        selectedMods: Array.isArray(selectedMods)
+            ? selectedMods.map(normalizeModuleCode).filter(Boolean)
+            : [],
+        customModules: Array.isArray(customModules)
+            ? customModules.map(normalizeCustomModuleRecord).filter(Boolean)
+            : [],
+        plannerModules: normalizePlannerModules(plannerModules),
+    };
+}
+
+function normalizeSavedModTreeState(savedState) {
+    if (!savedState || typeof savedState !== 'object') {
+        return null;
+    }
+
+    return {
+        selectedMajor: typeof savedState.selectedMajor === 'string' && savedState.selectedMajor.trim()
+            ? savedState.selectedMajor
+            : 'Empty-Major',
+        selectedMods: Array.isArray(savedState.selectedMods)
+            ? savedState.selectedMods.map(normalizeModuleCode).filter(Boolean)
+            : [],
+        customModules: Array.isArray(savedState.customModules)
+            ? savedState.customModules.map(normalizeCustomModuleRecord).filter(Boolean)
+            : [],
+        plannerModules: normalizePlannerModules(savedState.plannerModules),
+    };
+}
  
 export default function ModuleTreePage() {
     const location = useLocation();
     const navigate = useNavigate();
+    const { session } = UserAuth();
     const {
         query,
         setQuery,
@@ -201,6 +260,7 @@ export default function ModuleTreePage() {
                 setCustomModules(Array.isArray(savedState.customModules)
                     ? savedState.customModules.map(normalizeCustomModuleRecord).filter(Boolean)
                     : []);
+                setPlannerModules(normalizePlannerModules(savedState.plannerModules));
                 if (typeof savedState.scrollPosition === 'number') {
                     window.scrollTo({ top: savedState.scrollPosition });
                 }
@@ -209,6 +269,49 @@ export default function ModuleTreePage() {
             return () => window.cancelAnimationFrame(restoreFrame);
         }
     }, [location.state]);
+
+    useEffect(() => {
+        const userId = session?.user?.id;
+
+        if (location.state?.moduleTreeState || !userId) {
+            return;
+        }
+
+        let cancelled = false;
+
+        const restoreProfileState = async () => {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('modtree_state')
+                .eq('id', userId)
+                .maybeSingle();
+
+            if (cancelled) {
+                return;
+            }
+
+            if (error) {
+                console.error('Error loading saved ModTree state:', error);
+                return;
+            }
+
+            const restoredState = normalizeSavedModTreeState(data?.modtree_state);
+            if (!restoredState) {
+                return;
+            }
+
+            setSelectedMajor(restoredState.selectedMajor);
+            setSelectedMods(restoredState.selectedMods);
+            setCustomModules(restoredState.customModules);
+            setPlannerModules(restoredState.plannerModules);
+        };
+
+        restoreProfileState();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [location.state, session?.user?.id]);
  
     const handleToggleModule = (modId) => {
         const moduleCode = normalizeModuleCode(modId);
@@ -347,6 +450,12 @@ export default function ModuleTreePage() {
         const existingPastGrades = Array.isArray(existingProfile?.past_grades)
             ? existingProfile.past_grades
             : [];
+        const nextModtreeState = buildPersistedModTreeState({
+            selectedMajor,
+            selectedMods,
+            customModules,
+            plannerModules,
+        });
         const gradesByModuleCode = new Map(
             existingPastGrades
                 .filter((entry) => entry && typeof entry === 'object' && typeof entry.moduleCode === 'string')
@@ -370,6 +479,7 @@ export default function ModuleTreePage() {
         const { error: saveError } = await supabase.from('profiles').upsert({
             id: user.id,
             past_grades: nextPastGrades,
+            modtree_state: nextModtreeState,
         });
 
         if (saveError) {
@@ -380,7 +490,10 @@ export default function ModuleTreePage() {
         setSaveStatus(saveError ? 'error' : 'success');
     };
 
-    const moduleTreeState = useMemo(() => ({ selectedMajor, selectedMods, customModules }), [selectedMajor, selectedMods, customModules]);
+    const moduleTreeState = useMemo(
+        () => ({ selectedMajor, selectedMods, customModules, plannerModules }),
+        [selectedMajor, selectedMods, customModules, plannerModules]
+    );
 
     const filteredModules = useMemo(() =>
         allModules.filter(mod => mod.majors && mod.majors.includes(selectedMajor)),
