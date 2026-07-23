@@ -4,14 +4,16 @@ import { supabase } from '../supabaseClient';
 import { normalizeModuleCode } from './ModTree_components/modTreeModuleData';
 import SelectMajor from './ModTree_components/ModTree_SelectMajor';
 import ModuleTree from './ModTree_components/ModTree_ModTree';
+import CaseGRequirements from './ModTree_components/ModTree_OtherReq';
 import SelectedBasket from './ModTree_components/ModTree_SelectionBasket';
-import SelectionBasketButton from './ModTree_components/ModTree_SelectionBasketButton';
+import AcadsPlanner from './ModTree_components/ModTree_AcadsPlanner';
 import { ModTreeSearchBar } from './ModTree_components/ModTree_SearchBar';
 import { useModTreeModuleSearch } from '../hooks/useModTreeModuleSearch';
 
 const SEMESTER_LABELS = ['Y1S1', 'Y1S2', 'Y2S1', 'Y2S2', 'Y3S1', 'Y3S2', 'Y4S1', 'Y4S2'];
+const PLANNER_COLUMN_LABELS = ['Precluded Modules', ...SEMESTER_LABELS];
 
-function createEmptyPlannerModules(labels = SEMESTER_LABELS) {
+function createEmptyPlannerModules(labels = PLANNER_COLUMN_LABELS) {
     return Object.fromEntries(labels.map(label => [label, []]));
 }
 
@@ -39,6 +41,26 @@ function collectNestedModules(node, db) {
             }
         });
     }
+}
+
+function isCaseGRow(row) {
+    return typeof row?.id === 'string'
+        && row.id.endsWith('_not_rendered')
+        && Array.isArray(row.not_rendered)
+        && row.not_rendered.some((entry) => typeof entry === 'string' && entry.trim().length > 0);
+}
+
+function normalizeCaseGRow(row) {
+    if (!isCaseGRow(row)) {
+        return null;
+    }
+
+    return {
+        id: row.id,
+        label: row.label ?? 'Not Rendered',
+        majors: Array.isArray(row.majors) ? row.majors : [],
+        notRendered: row.not_rendered.filter((entry) => typeof entry === 'string' && entry.trim().length > 0),
+    };
 }
 
 // Converts a raw Supabase module row back into the shape the rest of the app expects
@@ -124,10 +146,13 @@ export default function ModuleTreePage() {
     );
  
     const [allModules, setAllModules] = useState([]);    // full list from Supabase
+    const [caseGRows, setCaseGRows] = useState([]);
     const [moduleDatabase, setModuleDatabase] = useState({}); // flat id→module dict
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [plannerModules, setPlannerModules] = useState(() => createEmptyPlannerModules());
+    const [savingProfile, setSavingProfile] = useState(false);
+    const [saveStatus, setSaveStatus] = useState(null);
  
     // Fetch all modules from Supabase once on mount
     useEffect(() => {
@@ -135,14 +160,27 @@ export default function ModuleTreePage() {
             setLoading(true);
             const { data, error } = await supabase
                 .from('modules')
-                .select('id,label,level,description,majors,compulsory_for,or_group_id,is_pillar,is_single_module_pillar,pillar_label,is_level4000_pathway,options,"is_requirement_group","Requirements","RequirementsPillar"');
- 
+                .select('id,label,level,description,majors,not_rendered,compulsory_for,or_group_id,is_pillar,is_single_module_pillar,pillar_label,is_level4000_pathway,options,"is_requirement_group","Requirements","RequirementsPillar"');
+
             if (error) {
                 console.error('Error fetching modules:', error);
                 setError('Failed to load modules. Please refresh.');
             } else {
-                const modules = data.map(rowToModule);
+                const modules = [];
+                const caseG = [];
+
+                (data ?? []).forEach((row) => {
+                    const caseGRow = normalizeCaseGRow(row);
+                    if (caseGRow) {
+                        caseG.push(caseGRow);
+                        return;
+                    }
+
+                    modules.push(rowToModule(row));
+                });
+
                 setAllModules(modules);
+                setCaseGRows(caseG);
                 setModuleDatabase(buildDatabase(modules));
             }
             setLoading(false);
@@ -281,7 +319,67 @@ export default function ModuleTreePage() {
 
         moveModulesToBasket(semesterModules);
     };
- 
+
+    const handleSaveSelectedModules = async () => {
+        setSavingProfile(true);
+        setSaveStatus(null);
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            setSavingProfile(false);
+            setSaveStatus('error');
+            return;
+        }
+
+        const { data: existingProfile, error: fetchError } = await supabase
+            .from('profiles')
+            .select('past_grades')
+            .eq('id', user.id)
+            .maybeSingle();
+
+        if (fetchError) {
+            console.error('Error loading existing profile modules:', fetchError);
+            setSavingProfile(false);
+            setSaveStatus('error');
+            return;
+        }
+
+        const existingPastGrades = Array.isArray(existingProfile?.past_grades)
+            ? existingProfile.past_grades
+            : [];
+        const gradesByModuleCode = new Map(
+            existingPastGrades
+                .filter((entry) => entry && typeof entry === 'object' && typeof entry.moduleCode === 'string')
+                .map((entry) => [entry.moduleCode, entry])
+        );
+
+        selectedMods.forEach((moduleCode) => {
+            const normalizedCode = typeof moduleCode === 'string' ? moduleCode.trim().toUpperCase() : '';
+            if (!normalizedCode || gradesByModuleCode.has(normalizedCode)) {
+                return;
+            }
+
+            gradesByModuleCode.set(normalizedCode, {
+                moduleCode: normalizedCode,
+                grade: '',
+            });
+        });
+
+        const nextPastGrades = Array.from(gradesByModuleCode.values());
+
+        const { error: saveError } = await supabase.from('profiles').upsert({
+            id: user.id,
+            past_grades: nextPastGrades,
+        });
+
+        if (saveError) {
+            console.error('Error saving selected modules to profile:', saveError);
+        }
+
+        setSavingProfile(false);
+        setSaveStatus(saveError ? 'error' : 'success');
+    };
+
     const moduleTreeState = useMemo(() => ({ selectedMajor, selectedMods, customModules }), [selectedMajor, selectedMods, customModules]);
 
     const filteredModules = useMemo(() =>
@@ -292,6 +390,14 @@ export default function ModuleTreePage() {
     const modulesByLvl = useMemo(() => [1000, 2000, 3000, 4000].map(lvl =>
         filteredModules.filter(mod => mod.level === lvl)
     ), [filteredModules]);
+
+    const caseGRow = useMemo(() => {
+        if (selectedMajor === 'Empty-Major') {
+            return null;
+        }
+
+        return caseGRows.find((row) => Array.isArray(row.majors) && row.majors.includes(selectedMajor)) ?? null;
+    }, [caseGRows, selectedMajor]);
  
     if (loading) {
             return (
@@ -352,15 +458,18 @@ export default function ModuleTreePage() {
                                 ) : null}
                             </div>
                             {selectedMajor !== 'Empty-Major' ? (
-                                <ModuleTree
-                                    modulesByLvl={modulesByLvl}
-                                    selectedMods={selectedMods}
-                                    selectedMajor={selectedMajor}
-                                    moduleTreeState={moduleTreeState}
-                                    onToggleModule={handleToggleModule}
-                                    customModules={customModules}
-                                    onRemoveCustomModule={handleRemoveCustomModule}
-                                />
+                                <>
+                                    <ModuleTree
+                                        modulesByLvl={modulesByLvl}
+                                        selectedMods={selectedMods}
+                                        selectedMajor={selectedMajor}
+                                        moduleTreeState={moduleTreeState}
+                                        onToggleModule={handleToggleModule}
+                                        customModules={customModules}
+                                        onRemoveCustomModule={handleRemoveCustomModule}
+                                    />
+                                    <CaseGRequirements row={caseGRow} selectedMajor={selectedMajor} />
+                                </>
                             ) : (
                                 <div style={{ textAlign: 'center', padding: '40px', color: '#666', fontStyle: 'italic' }}>
                                     Please select a major from the dropdown above to display your graduation pathway tree.
@@ -368,6 +477,37 @@ export default function ModuleTreePage() {
                             )}
                         </div>
                     </div>
+                </div>
+
+                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginTop: '18px' }}>
+                    {saveStatus === 'success' && (
+                        <div style={{ color: '#166534', backgroundColor: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '10px 14px', fontSize: '13px', fontWeight: '600' }}>
+                            Saved selected modules to your profile.
+                        </div>
+                    )}
+                    {saveStatus === 'error' && (
+                        <div style={{ color: '#b91c1c', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', padding: '10px 14px', fontSize: '13px', fontWeight: '600' }}>
+                            Could not save selected modules. Please try again.
+                        </div>
+                    )}
+                    <button
+                        type="button"
+                        onClick={handleSaveSelectedModules}
+                        disabled={savingProfile || selectedMods.length === 0}
+                        style={{
+                            padding: '12px 22px',
+                            borderRadius: '999px',
+                            border: 'none',
+                            backgroundColor: selectedMods.length === 0 ? '#cbd5e1' : '#E95420',
+                            color: '#ffffff',
+                            cursor: savingProfile || selectedMods.length === 0 ? 'not-allowed' : 'pointer',
+                            fontSize: '14px',
+                            fontWeight: '700',
+                            boxShadow: '0 4px 12px rgba(233, 84, 32, 0.18)',
+                        }}
+                    >
+                        {savingProfile ? 'Saving...' : 'Save selected modules to profile'}
+                    </button>
                 </div>
 
                 <div style={{ position: 'fixed', top: '120px', right: '16px', width: '200px', maxWidth: 'calc(100vw - 32px)', zIndex: 50 }}>
@@ -383,115 +523,18 @@ export default function ModuleTreePage() {
             </div>
 
 
-            {/* Module planner */} {/*To be abstracted into its own component later */}
-            <div style={{marginTop: '50vh', fontSize: '32px', fontWeight: '600', color: '#1f2937', marginBottom: '12px', paddingLeft: '16px' }}>
-                Module Planner
-            </div>
-            <div
-                style={{
-                    marginBottom: '10vh',
-                    padding: '24px 0 32px',
-                    width: '100%',
-                    overflowX: 'auto',
-                    scrollbarWidth: 'thin',
-                }}
-            >
-                    <div style={{ display: 'flex', gap: '12px', minWidth: 'max-content', paddingBottom: '8px' }}>
-                    {SEMESTER_LABELS.map((label) => {
-                        const semesterModules = plannerModules[label] ?? [];
-
-                        return (
-                            <div
-                                key={label}
-                                onDragOver={(event) => {
-                                    event.preventDefault();
-                                    event.dataTransfer.dropEffect = 'move';
-                                }}
-                                onDrop={(event) => {
-                                    event.preventDefault();
-                                    const draggedModuleId = event.dataTransfer.getData('text/plain');
-                                    if (draggedModuleId) {
-                                        handleDropModuleToSemester(label, draggedModuleId);
-                                    }
-                                }}
-                                style={{
-                                    flex: '0 0 calc((100vw - 64px) / 3.5)',
-                                    minWidth: '260px',
-                                    maxWidth: '320px',
-                                    padding: '16px',
-                                    backgroundColor: '#ffffff',
-                                    border: '1px solid #d1d5db',
-                                    borderRadius: '12px',
-                                    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '12px',
-                                }}
-                            >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                                    <div style={{ fontWeight: '700', fontSize: '14px', color: '#1f2937', letterSpacing: '0.02em' }}>
-                                        {label}
-                                    </div>
-                                    <div style={{ fontSize: '12px', color: '#4b5563', fontWeight: '500' }}>
-                                        Total MCs: {semesterModules.length * 4}
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleClearSemesterModules(label)}
-                                        style={{
-                                            padding: '4px 8px',
-                                            borderRadius: '999px',
-                                            border: '1px solid #d1d5db',
-                                            backgroundColor: '#fff',
-                                            color: '#4b5563',
-                                            cursor: 'pointer',
-                                            fontSize: '11px',
-                                            fontWeight: '600',
-                                        }}
-                                    >
-                                        Clear
-                                    </button>
-                                </div>
-                                <div style={{
-                                    minHeight: '320px',
-                                    border: '1px dashed #cbd5e1',
-                                    borderRadius: '8px',
-                                    backgroundColor: '#f9fafb',
-                                    padding: '12px',
-                                    color: '#6b7280',
-                                    fontSize: '13px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '8px',
-                                }}>
-                                    {semesterModules.length === 0 ? (
-                                        <span>Drop modules here</span>
-                                    ) : (
-                                        semesterModules.map((moduleId) => {
-                                            const moduleMeta = moduleDatabase[moduleId];
-                                            const isCompulsoryInPlanner = moduleMeta?.compulsoryFor?.includes(selectedMajor);
-
-                                            return (
-                                                <div key={moduleId} style={{ width: '100%' }}>
-                                                    <SelectionBasketButton
-                                                        moduleCode={moduleId}
-                                                        isSelected={selectedMods.includes(moduleId)}
-                                                        isCompulsory={isCompulsoryInPlanner}
-                                                        onToggle={() => handleToggleModule(moduleId)}
-                                                        onRemove={() => handleRemoveModuleFromPlanner(moduleId)}
-                                                        moduleTreeState={moduleTreeState}
-                                                        fullWidth
-                                                    />
-                                                </div>
-                                            );
-                                        })
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
+            <AcadsPlanner
+                plannerModules={plannerModules}
+                selectedMods={selectedMods}
+                selectedMajor={selectedMajor}
+                moduleDatabase={moduleDatabase}
+                moduleTreeState={moduleTreeState}
+                onDropModuleToSemester={handleDropModuleToSemester}
+                onClearSemesterModules={handleClearSemesterModules}
+                onRemoveModuleFromPlanner={handleRemoveModuleFromPlanner}
+                onToggleModule={handleToggleModule}
+                semesterLabels={PLANNER_COLUMN_LABELS}
+            />
         </div>
     );
 }

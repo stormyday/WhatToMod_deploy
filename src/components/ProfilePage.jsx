@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Select from 'react-select';
 import { useNavigate } from "react-router-dom";
 import { supabase } from '../supabaseClient';
@@ -112,7 +112,7 @@ export default function ProfilePage() {
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (data) {
         setProfile({

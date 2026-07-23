@@ -1,13 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchSentiment } from '../../utils/api';
-import { lookupModuleMetadata } from './modTreeModuleData';
+import { getPrereqConflictMessages, lookupModuleMetadata, lookupModulePrereq, normalizeModuleCode } from './modTreeModuleData';
 
 const sentimentCache = {};
 
-export default function SelectionBasketButton({ moduleCode, isSelected, isCompulsory, onToggle, onRemove, moduleTreeState = null, fullWidth = false }) {
+export default function SelectionBasketButton({
+    moduleCode,
+    isSelected,
+    isCompulsory,
+    onToggle,
+    onRemove,
+    moduleTreeState = null,
+    fullWidth = false,
+    availableModuleCodes = [],
+    preclusionMessages = [],
+    suppressPrereqWarnings = false,
+}) {
+    const normalizedModuleCode = useMemo(() => normalizeModuleCode(moduleCode), [moduleCode]);
     const [matchedModule, setMatchedModule] = useState(null);
     const [loadingModule, setLoadingModule] = useState(true);
+    const [prereqInfo, setPrereqInfo] = useState(null);
+    const [prereqResolvedCode, setPrereqResolvedCode] = useState(null);
     const [sentiment, setSentiment] = useState(null);
     const [isLoadingSentiment, setIsLoadingSentiment] = useState(false);
 
@@ -26,6 +40,21 @@ export default function SelectionBasketButton({ moduleCode, isSelected, isCompul
         });
         return () => { isMounted = false; };
     }, [moduleCode]);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        lookupModulePrereq(moduleCode).then((row) => {
+            if (isMounted) {
+                setPrereqInfo(row);
+                setPrereqResolvedCode(normalizedModuleCode);
+            }
+        });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [moduleCode, normalizedModuleCode]);
 
     useEffect(() => {
         if (sentiment) return;
@@ -58,6 +87,15 @@ export default function SelectionBasketButton({ moduleCode, isSelected, isCompul
             window.cancelAnimationFrame(loadingFrame);
         };
     }, [moduleCode, sentiment]);
+
+    const missingPrereqCodes = useMemo(
+        () => (suppressPrereqWarnings ? [] : getPrereqConflictMessages(prereqInfo, availableModuleCodes)),
+        [availableModuleCodes, prereqInfo, suppressPrereqWarnings]
+    );
+
+    const hasPreclusionConflict = Array.isArray(preclusionMessages) && preclusionMessages.length > 0;
+    const hasPrereqConflict = prereqResolvedCode === normalizedModuleCode && missingPrereqCodes.length > 0;
+    const hasWarning = hasPreclusionConflict || hasPrereqConflict;
 
     if (loadingModule) {
         return (
@@ -102,10 +140,10 @@ export default function SelectionBasketButton({ moduleCode, isSelected, isCompul
         );
     }
 
-    const bgColor = isCompulsory ? '#E1F5EE' : '#FAECE7';
-    const textColor = isCompulsory ? '#1D9E75' : '#D85A30';
+    const bgColor = hasWarning ? '#FFF1E5' : isCompulsory ? '#E1F5EE' : '#FAECE7';
+    const textColor = hasWarning ? '#C2410C' : isCompulsory ? '#1D9E75' : '#D85A30';
     const borderColor = isSelected
-        ? (isCompulsory ? '#1D9E75' : '#D85A30')
+        ? (hasWarning ? '#EA580C' : isCompulsory ? '#1D9E75' : '#D85A30')
         : 'rgba(0,0,0,0.1)';
 
     const renderSentimentRows = () => {
@@ -234,6 +272,17 @@ const linkState = moduleTreeState ? {
             {sentiment && (
                 <div style={{ fontSize: '7px', color: '#7A766F' }}>
                     Based on {sentiment.reviewCount} reviews
+                </div>
+            )}
+            {hasPrereqConflict && (
+                <div style={{ fontSize: '7px', color: '#9A3412', lineHeight: 1.35 }}>
+                    Missing prerequisite{missingPrereqCodes.length > 1 ? 's' : ''} from earlier semesters: {' '}
+                    {missingPrereqCodes.join(', ')}
+                </div>
+            )}
+            {hasPreclusionConflict && (
+                <div style={{ fontSize: '7px', color: '#9A3412', lineHeight: 1.35 }}>
+                    Precluded by: {preclusionMessages.join(', ')}
                 </div>
             )}
         </div>

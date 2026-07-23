@@ -1,21 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import { useState } from 'react';
 import ModuleButton from './ModTree_ModButton';
+
+const OPTIONS_PER_COLUMN = 7;
+const MAX_VISIBLE_COLUMNS = 1
+
+function chunkOptions(options, chunkSize) {
+    const chunks = [];
+    for (let index = 0; index < options.length; index += chunkSize) {
+        chunks.push(options.slice(index, index + chunkSize));
+    }
+    return chunks;
+}
 
 export default function PillarDropdown({ pillarModule, selectedMods, selectedMajor, moduleTreeState, onToggleModule }) {
     const [isOpen, setIsOpen] = useState(false);
     const compulsoryFor = pillarModule.compulsoryFor ?? pillarModule.compulsory_for ?? [];
-    const [activeOptionId, setActiveOptionId] = useState(() => {
-        const initialOption = pillarModule.options.find(opt => selectedMods.includes(opt.id));
-        return initialOption?.id ?? null;
-    });
 
-    useEffect(() => {
-        const matchingOption = pillarModule.options.find(opt => selectedMods.includes(opt.id));
-        setActiveOptionId(matchingOption?.id ?? null);
-    }, [pillarModule.options, selectedMods]);
-
-    const selectedOption = pillarModule.options.find(opt => opt.id === activeOptionId)
-        || pillarModule.options.find(opt => selectedMods.includes(opt.id));
+    const selectedOption = pillarModule.options.find(opt => selectedMods.includes(opt.id));
+    const optionColumns = chunkOptions(pillarModule.options, OPTIONS_PER_COLUMN);
 
     return (
         <div style={{
@@ -56,39 +58,65 @@ export default function PillarDropdown({ pillarModule, selectedMods, selectedMaj
                     marginTop: '8px',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '6px',
+                    gap: '8px',
                     padding: '6px',
                     backgroundColor: '#F7F6F2',
                     borderRadius: '8px',
-                    border: '1px solid rgba(0,0,0,0.06)'
+                    border: '1px solid rgba(0,0,0,0.06)',
+                    width: 'max-content',
+                    minWidth: '100%',
+                    alignSelf: 'flex-start',
                 }}>
                     <p style={{ fontSize: '11px', margin: '0 0 5px 0', color: '#5F5E5A', fontWeight: '500' }}>
                         Select 1 Option:
                     </p>
-                    {pillarModule.options.map((option) => {
-                        const isSelected = selectedMods.includes(option.id);
-                        // Inherit compulsory status from the pillar, resolved against the active major.
-                        // Falls back gracefully if selectedMajor is not provided.
-                        const isCompulsory = selectedMajor
-                            ? compulsoryFor.includes(selectedMajor)
-                            : compulsoryFor.length > 0;
-                        return (
-                            <ModuleButton
-                                key={option.id}
-                                moduleCode={option.id}
-                                isSelected={isSelected}
-                                isCompulsory={isCompulsory}
-                                moduleTreeState={moduleTreeState}
-                                compact
-                                onToggle={() => {
-                                    const willSelect = !isSelected;
-                                    onToggleModule(option.id);
-                                    setActiveOptionId(willSelect ? option.id : null);
-                                    setIsOpen(false); // Single-pick: close after selection
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'row',
+                        flexWrap: 'nowrap',
+                        gap: '8px',
+                        alignItems: 'flex-start',
+                        overflowX: optionColumns.length > MAX_VISIBLE_COLUMNS ? 'auto' : 'visible',
+                        maxWidth: optionColumns.length > MAX_VISIBLE_COLUMNS
+                            ? `calc((150px * ${MAX_VISIBLE_COLUMNS}) + (8px * ${MAX_VISIBLE_COLUMNS - 1}))`
+                            : 'none',
+                        paddingBottom: optionColumns.length > 1 ? '2px' : 0,
+                    }}>
+                        {optionColumns.map((columnOptions, columnIndex) => (
+                            <div
+                                key={`pillar-column-${columnIndex}`}
+                                style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '6px',
+                                    minWidth: 'fit-content',
                                 }}
-                            />
-                        );
-                    })}
+                            >
+                                {columnOptions.map((option) => {
+                                    const isSelected = selectedMods.includes(option.id);
+                                    // Inherit compulsory status from the pillar, resolved against the active major.
+                                    // Falls back gracefully if selectedMajor is not provided.
+                                    const isCompulsory = selectedMajor
+                                        ? compulsoryFor.includes(selectedMajor)
+                                        : compulsoryFor.length > 0;
+                                    return (
+                                        <ModuleButton
+                                            key={option.id}
+                                            moduleCode={option.id}
+                                            isSelected={isSelected}
+                                            isCompulsory={isCompulsory}
+                                            moduleTreeState={moduleTreeState}
+                                            compact
+                                            onToggle={() => {
+                                                onToggleModule(option.id);
+                                                setIsOpen(false); // Single-pick: close after selection
+                                            }}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
         </div>

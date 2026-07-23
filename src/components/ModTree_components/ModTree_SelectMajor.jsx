@@ -33,10 +33,16 @@ export default function SelectMajor({ selectedMajor, onMajorChange }) {
                 <option value="Artificial Intelligence" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Artificial Intelligence</option>
                 <option value="Business Artificial Intelligence Systems" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Business Artificial Intelligence Systems</option>
                 <option value="BZA-Major" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Business Analytics</option>
+                <option value="Chemical Engineering" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Chemical Engineering</option>
+                <option value="Chemistry" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Chemistry</option>
+                <option value="Civil Engineering" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Civil Engineering</option>
                 <option value="Computer Engineering" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Computer Engineering</option>
                 <option value="Computer Science" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Computer Science</option>
+                <option value="Environmental and Sustainability Engineering" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Environmental and Sustainability Engineering</option>
+                <option value="Data Science and Analytics" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Data Science & Analytics (Click This Option for Optimised Demo)</option>
+                <option value="Data Science and Economics" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Data Science & Economics (Click This Option for Optimised Demo)</option>
                 <option value="Information Security" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Information Security</option>
-                <option value="DSA-Major" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Data Science & Analytics (Click This Option for Optimised Demo)</option>
+                <option value="Life Sciences" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Life Sciences</option>
             </select>
         </div>
     )
