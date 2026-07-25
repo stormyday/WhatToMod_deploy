@@ -7,7 +7,7 @@ import SelectMajor from './ModTree_components/ModTree_SelectMajor';
 import ModuleTree from './ModTree_components/ModTree_ModTree';
 import CaseGRequirements from './ModTree_components/ModTree_OtherReq';
 import SelectedBasket from './ModTree_components/ModTree_SelectionBasket';
-import AcadsPlanner from './ModTree_components/ModTree_AcadsPlanner';
+import AcadsPlanner from './AcadsPlanner/ModTree_AcadsPlanner';
 import { ModTreeSearchBar } from './ModTree_components/ModTree_SearchBar';
 import { useModTreeModuleSearch } from '../hooks/useModTreeModuleSearch';
 
@@ -370,13 +370,24 @@ export default function ModuleTreePage() {
 
     const handleDropModuleToSemester = (semester, moduleId) => {
         setPlannerModules(current => {
-            if (!moduleId || current[semester]?.includes(moduleId)) {
+            if (!moduleId) {
                 return current;
             }
 
+            const nextPlannerModules = Object.fromEntries(
+                Object.entries(current).map(([currentSemester, semesterModules]) => [
+                    currentSemester,
+                    (semesterModules ?? []).filter((id) => id !== moduleId)
+                ])
+            );
+
+            if (nextPlannerModules[semester]?.includes(moduleId)) {
+                return nextPlannerModules;
+            }
+
             return {
-                ...current,
-                [semester]: [...(current[semester] ?? []), moduleId]
+                ...nextPlannerModules,
+                [semester]: [...(nextPlannerModules[semester] ?? []), moduleId]
             };
         });
 

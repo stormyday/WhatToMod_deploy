@@ -1,4 +1,4 @@
-import SelectionBasketButton from './ModTree_SelectionBasketButton';
+import SelectionBasketButton from '../ModTree_components/ModTree_SelectionBasketButton';
 
 const DEFAULT_PLANNER_COLUMNS = ['Precluded Modules', 'Y1S1', 'Y1S2', 'Y2S1', 'Y2S2', 'Y3S1', 'Y3S2', 'Y4S1', 'Y4S2'];
 

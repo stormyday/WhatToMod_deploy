@@ -62,7 +62,6 @@ export default function ModuleTree({
     moduleTreeState,
     onToggleModule,
     customModules = [],
-    onRemoveCustomModule,
 }) {
     const level4000ActiveTracksVersion = useSyncExternalStore(
         subscribeLevel4000ActiveTracks,
@@ -256,6 +255,24 @@ export default function ModuleTree({
                                     renderedGroups.add(groupId);
 
                                     const groupModules = layer.filter(m => m.orGroupId === groupId);
+
+                                    if (groupModules.length === 1) {
+                                        const [singleGroupModule] = groupModules;
+                                        const isSelected = selectedMods.includes(singleGroupModule.id);
+
+                                        return (
+                                            <div key={singleGroupModule.id} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '34px' }}>
+                                                <ModuleButton
+                                                    moduleCode={singleGroupModule.id}
+                                                    isSelected={isSelected}
+                                                    isCompulsory={singleGroupModule.compulsoryFor?.includes(selectedMajor)}
+                                                    moduleTreeState={moduleTreeState}
+                                                    compact
+                                                    onToggle={() => onToggleModule(singleGroupModule.id)}
+                                                />
+                                            </div>
+                                        );
+                                    }
 
                                     return (
                                         <div key={groupId} style={{
