@@ -1,0 +1,19 @@
+{
+  "type": "module",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "@xenova/transformers": "^2.17.2",
+    "dotenv": "^17.4.2",
+    "openai": "^6.46.0",
+    "pdf-parse": "^2.4.5",
+    "playwright": "^1.45.0"
+  },
+  "scripts": {
+    "scrape": "node scraper.mjs",
+    "analyze": "node --expose-gc analyze.mjs",
+    "prereq-scraper": "node prereqScraper.mjs",
+    "grad-req:pack": "node gradReqBatch.mjs --mode=pack",
+    "grad-req:generate": "node gradReqBatch.mjs --mode=generate",
+    "grad-req:ingest": "node gradReqBatch.mjs --mode=ingest"
+  }
+}
