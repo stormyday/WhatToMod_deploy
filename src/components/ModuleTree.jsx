@@ -64,6 +64,13 @@ function normalizeCaseGRow(row) {
     };
 }
 
+function getModuleDisplayLevel(module, groupDisplayLevels) {
+    const groupedLevel = module?.orGroupId ? groupDisplayLevels.get(module.orGroupId) : undefined;
+    const rawLevel = Number(groupedLevel ?? module?.level);
+
+    return Number.isFinite(rawLevel) ? rawLevel : module?.level;
+}
+
 // Converts a raw Supabase module row back into the shape the rest of the app expects
 function rowToModule(row) {
     return {
@@ -499,10 +506,32 @@ export default function ModuleTreePage() {
         allModules.filter(mod => mod.majors && mod.majors.includes(selectedMajor)),
         [allModules, selectedMajor]
     );
+
+    const orGroupDisplayLevels = useMemo(() => {
+        const levelsByGroup = new Map();
+
+        filteredModules.forEach((mod) => {
+            if (!mod.orGroupId) {
+                return;
+            }
+
+            const moduleLevel = Number(mod.level);
+            if (!Number.isFinite(moduleLevel)) {
+                return;
+            }
+
+            const currentLevel = levelsByGroup.get(mod.orGroupId);
+            if (currentLevel === undefined || moduleLevel < currentLevel) {
+                levelsByGroup.set(mod.orGroupId, moduleLevel);
+            }
+        });
+
+        return levelsByGroup;
+    }, [filteredModules]);
  
     const modulesByLvl = useMemo(() => [1000, 2000, 3000, 4000].map(lvl =>
-        filteredModules.filter(mod => mod.level === lvl)
-    ), [filteredModules]);
+        filteredModules.filter(mod => getModuleDisplayLevel(mod, orGroupDisplayLevels) === lvl)
+    ), [filteredModules, orGroupDisplayLevels]);
 
     const caseGRow = useMemo(() => {
         if (selectedMajor === 'Empty-Major') {

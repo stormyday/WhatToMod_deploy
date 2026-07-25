@@ -38,9 +38,13 @@ export default function SelectMajor({ selectedMajor, onMajorChange }) {
                 <option value="Civil Engineering" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Civil Engineering</option>
                 <option value="Computer Engineering" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Computer Engineering</option>
                 <option value="Computer Science" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Computer Science</option>
+                <option value="Data Science and Analytics" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Data Science & Analytics</option>
+                <option value="Data Science and Economics" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Data Science & Economics</option>
                 <option value="Environmental and Sustainability Engineering" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Environmental and Sustainability Engineering</option>
-                <option value="Data Science and Analytics" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Data Science & Analytics (Click This Option for Optimised Demo)</option>
-                <option value="Data Science and Economics" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Data Science & Economics (Click This Option for Optimised Demo)</option>
+                <option value="Electrical Engineering" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Electrical Engineering</option>
+                <option value="Engineering Science" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Engineering Science</option>
+                <option value="Economics" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Economics</option>
+                <option value="Industrial and Systems Engineering" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Industrial and Systems Engineering</option>
                 <option value="Information Security" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Information Security</option>
                 <option value="Life Sciences" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Life Sciences</option>
             </select>

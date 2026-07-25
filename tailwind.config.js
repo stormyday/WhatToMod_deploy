@@ -2,11 +2,16 @@
 export default {
   content: [
     "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}"
+    "./src/{App,main,ProtectedRoute,router,supabaseClient}.{js,jsx,ts,tsx}",
+    "./src/assets/**/*.{js,jsx,ts,tsx}",
+    "./src/components/**/*.{js,jsx,ts,tsx}",
+    "./src/context/**/*.{js,jsx,ts,tsx}",
+    "./src/hooks/**/*.{js,jsx,ts,tsx}",
+    "./src/utils/**/*.{js,jsx,ts,tsx}",
+    "!./src/scraper/**"
   ],
   theme: {
     extend: {},
   },
   plugins: [],
 }
-
