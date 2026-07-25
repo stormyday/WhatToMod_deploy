@@ -8,7 +8,6 @@ const sentimentCache = {};
 export default function SelectionBasketButton({
     moduleCode,
     isSelected,
-    isCompulsory,
     onToggle,
     onRemove,
     moduleTreeState = null,
@@ -24,6 +23,7 @@ export default function SelectionBasketButton({
     const [prereqResolvedCode, setPrereqResolvedCode] = useState(null);
     const [sentiment, setSentiment] = useState(null);
     const [isLoadingSentiment, setIsLoadingSentiment] = useState(false);
+    const [notes, setNotes] = useState('');
 
     const handleDragStart = (event) => {
         event.dataTransfer.setData('text/plain', moduleCode);
@@ -95,8 +95,6 @@ export default function SelectionBasketButton({
 
     const hasPreclusionConflict = Array.isArray(preclusionMessages) && preclusionMessages.length > 0;
     const hasPrereqConflict = prereqResolvedCode === normalizedModuleCode && missingPrereqCodes.length > 0;
-    const hasWarning = hasPreclusionConflict || hasPrereqConflict;
-
     if (loadingModule) {
         return (
             <button
@@ -107,11 +105,11 @@ export default function SelectionBasketButton({
                     borderRadius: '10px',
                     border: '1px solid rgba(0,0,0,0.08)',
                     backgroundColor: '#F7F6F2',
-                    color: '#6B7280',
+                    color: '#5F5E5A',
                     textAlign: 'left',
                     opacity: 0.7,
                     cursor: 'not-allowed',
-                    fontSize: '9px'
+                    fontSize: '11px'
                 }}
             >
                 Loading module…
@@ -129,10 +127,10 @@ export default function SelectionBasketButton({
                     borderRadius: '10px',
                     border: '1px solid rgba(0,0,0,0.08)',
                     backgroundColor: '#F7F6F2',
-                    color: '#9CA3AF',
+                    color: '#5F5E5A',
                     textAlign: 'left',
                     cursor: 'not-allowed',
-                    fontSize: '9px'
+                    fontSize: '11px'
                 }}
             >
                 Unknown module
@@ -140,11 +138,9 @@ export default function SelectionBasketButton({
         );
     }
 
-    const bgColor = hasWarning ? '#FFF1E5' : isCompulsory ? '#E1F5EE' : '#FAECE7';
-    const textColor = hasWarning ? '#C2410C' : isCompulsory ? '#1D9E75' : '#D85A30';
-    const borderColor = isSelected
-        ? (hasWarning ? '#EA580C' : isCompulsory ? '#1D9E75' : '#D85A30')
-        : 'rgba(0,0,0,0.1)';
+    const bgColor = isSelected ? '#E1F5EE' : '#F7F6F2';
+    const textColor = isSelected ? '#1D9E75' : '#5F5E5A';
+    const borderColor = isSelected ? '#1D9E75' : 'rgba(0,0,0,0.1)';
 
     const renderSentimentRows = () => {
         if (!sentiment) return null;
@@ -162,7 +158,7 @@ export default function SelectionBasketButton({
 
             return (
                 <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '8px', fontWeight: '600', color: '#42413F' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', fontWeight: '600', color: '#42413F' }}>
                         <span>{label}</span>
                         {isExpectedGrade ? (
                             <span>{aspect.level}</span>
@@ -214,9 +210,9 @@ const linkState = moduleTreeState ? {
                     to={`/insights/${encodeURIComponent(moduleCode)}`}
                     state={linkState}
                     style={{
-                        fontSize: '9px',
+                        fontSize: '11px',
                         fontWeight: '750',
-                        color: '#0000FF',
+                        color: textColor,
                         textDecoration: 'none',
                         flex: 1,
                         whiteSpace: 'nowrap',
@@ -226,7 +222,7 @@ const linkState = moduleTreeState ? {
                         lineHeight: 1.2
                     }}
                 >
-                    <u>{matchedModule.label}</u>
+                    <u>{matchedModule.moduleCode?.toUpperCase?.() ?? moduleCode.toUpperCase()}</u>
                 </Link>
                 <button
                     type="button"
@@ -250,7 +246,7 @@ const linkState = moduleTreeState ? {
                         display: 'grid',
                         placeItems: 'center normal',
                         boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-                        fontSize: '9px',
+                        fontSize: '11px',
                         padding: 0,
                         flexShrink: 0
                     }}
@@ -258,33 +254,57 @@ const linkState = moduleTreeState ? {
                     X
                 </button>
             </div>
-            {matchedModule.description && (
-                <div style={{ fontSize: '8px', color: '#5F5E5A', lineHeight: '1.25', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                    {matchedModule.description}
-                </div>
-            )}
             {isLoadingSentiment && (
-                <div style={{ fontSize: '8px', color: '#7A766F' }}>
+                <div style={{ fontSize: '10px', color: '#7A766F' }}>
                     Loading review insights...
                 </div>
             )}
             {renderSentimentRows()}
             {sentiment && (
-                <div style={{ fontSize: '7px', color: '#7A766F' }}>
+                <div style={{ fontSize: '9px', color: '#7A766F' }}>
                     Based on {sentiment.reviewCount} reviews
                 </div>
             )}
             {hasPrereqConflict && (
-                <div style={{ fontSize: '7px', color: '#9A3412', lineHeight: 1.35 }}>
-                    Missing prerequisite{missingPrereqCodes.length > 1 ? 's' : ''} from earlier semesters: {' '}
-                    {missingPrereqCodes.join(', ')}
+                <div style={{ fontSize: '11px', color: '#9A3412', lineHeight: 1.35 }}>
+                    <span>Missing prerequisite{missingPrereqCodes.length > 1 ? 's' : ''} from earlier semesters: </span>
+                    <strong>{missingPrereqCodes.join(', ')}</strong>
                 </div>
             )}
             {hasPreclusionConflict && (
-                <div style={{ fontSize: '7px', color: '#9A3412', lineHeight: 1.35 }}>
+                <div style={{ fontSize: '9px', color: '#5F5E5A', lineHeight: 1.35 }}>
                     Precluded by: {preclusionMessages.join(', ')}
                 </div>
             )}
+            <div
+                style={{
+                    marginTop: '4px',
+                    minHeight: '28px',
+                }}
+            >
+                <textarea
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                    placeholder="Notes..."
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onDragStart={(event) => event.stopPropagation()}
+                    style={{
+                        width: '100%',
+                        minHeight: '28px',
+                        border: 'none',
+                        outline: 'none',
+                        resize: 'none',
+                        background: 'transparent',
+                        color: '#5F5E5A',
+                        fontSize: '10px',
+                        lineHeight: 1.4,
+                        padding: 0,
+                        margin: 0,
+                        boxSizing: 'border-box',
+                        fontFamily: 'inherit',
+                    }}
+                />
+            </div>
         </div>
     );
 }

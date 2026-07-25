@@ -2,7 +2,7 @@ import { supabase } from "../../supabaseClient";
 import { fetchModuleDetail, fetchModuleList } from "../../utils/api";
 
 const MODULE_COLUMNS =
-  'id,label,description,majors,compulsory_for,or_group_id,is_pillar,is_single_module_pillar,pillar_label,is_level4000_pathway,options,"is_requirement_group","Requirements","RequirementsPillar"';
+  'id,label,description,majors,not_rendered,compulsory_for,or_group_id,is_pillar,is_single_module_pillar,pillar_label,is_level4000_pathway,options,"is_requirement_group","Requirements","RequirementsPillar"';
 const PREREQ_COLUMNS =
   'module_code,title,module_credit,department,faculty,prerequisite_raw,corequisite_raw,preclusion_raw,prereq_codes,coreq_codes,preclusion_codes,prereq_tree';
 
@@ -15,12 +15,38 @@ function normalizeCode(value) {
     return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
+function isModuleCode(value) {
+    return /^[a-z]{2,4}\d{4}[a-z]?$/i.test(typeof value === "string" ? value.trim() : "");
+}
+
 function normalizeTitle(node, fallbackCode) {
     return node?.label ?? node?.title ?? fallbackCode.toUpperCase();
 }
 
 function normalizeDescription(node) {
     return typeof node?.description === "string" ? node.description : "";
+}
+
+function hasMeaningfulEntries(value) {
+    if (Array.isArray(value)) {
+        return value.some((entry) => {
+            if (entry === null || entry === undefined) {
+                return false;
+            }
+
+            if (typeof entry === "string") {
+                return entry.trim().length > 0;
+            }
+
+            return true;
+        });
+    }
+
+    if (typeof value === "string") {
+        return value.trim().length > 0;
+    }
+
+    return Boolean(value);
 }
 
 function collectModuleCodes(value, collected) {
@@ -30,7 +56,7 @@ function collectModuleCodes(value, collected) {
 
     if (typeof value === "string") {
         const normalized = normalizeCode(value);
-        if (normalized && /^[a-z]{2,4}\d{4}[a-z]?$/i.test(value.trim())) {
+        if (normalized && isModuleCode(value)) {
             collected.add(normalized);
         }
         return;
@@ -222,6 +248,18 @@ function normalizeModTreeNode(node) {
         return null;
     }
 
+    if (!isModuleCode(moduleCode)) {
+        return null;
+    }
+
+    const options = node?.options;
+    const requirements = node?.Requirements ?? node?.requirements;
+    const notRendered = node?.not_rendered ?? node?.notRendered;
+    const searchHidden = hasMeaningfulEntries(options)
+        || hasMeaningfulEntries(requirements)
+        || hasMeaningfulEntries(notRendered)
+        || moduleCode.endsWith("_not_rendered");
+
     return {
         id: moduleCode,
         label: normalizeTitle(node, moduleCode),
@@ -229,6 +267,10 @@ function normalizeModTreeNode(node) {
         moduleCode,
         title: normalizeTitle(node, moduleCode),
         hasModTreeMetadata: true,
+        hasOptions: hasMeaningfulEntries(options),
+        hasRequirements: hasMeaningfulEntries(requirements),
+        hasNotRendered: hasMeaningfulEntries(notRendered),
+        searchHidden,
         source: "modtree",
     };
 }

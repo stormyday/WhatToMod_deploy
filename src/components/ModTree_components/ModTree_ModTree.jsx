@@ -62,7 +62,6 @@ export default function ModuleTree({
     moduleTreeState,
     onToggleModule,
     customModules = [],
-    onRemoveCustomModule,
 }) {
     const level4000ActiveTracksVersion = useSyncExternalStore(
         subscribeLevel4000ActiveTracks,
@@ -77,9 +76,9 @@ export default function ModuleTree({
         flexDirection: 'column',
         gap: '12px',
         alignItems: 'center',
-        flex: '0 0 205px',
-        minWidth: '205px',
-        padding: '8px 4px',
+        flex: '0 0 190px',
+        minWidth: '190px',
+        padding: '8px 2px',
         borderRadius: '10px',
         transition: 'background-color 0.15s ease',
         boxSizing: 'border-box',
@@ -154,7 +153,7 @@ export default function ModuleTree({
     );
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'stretch', gap: '6px', width: '100%', overflowX: 'auto', overflowY: 'hidden', minWidth: '0' }}>
+        <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'stretch', gap: '3px', width: '100%', overflowX: 'auto', overflowY: 'hidden', minWidth: '0' }}>
             {modulesByLvl.map((layer, layerIndex) => {
                 const renderedGroups = new Set();
                 const { layerComplete } = getLayerCompletionState(layer, selectedMods);
@@ -256,6 +255,24 @@ export default function ModuleTree({
                                     renderedGroups.add(groupId);
 
                                     const groupModules = layer.filter(m => m.orGroupId === groupId);
+
+                                    if (groupModules.length === 1) {
+                                        const [singleGroupModule] = groupModules;
+                                        const isSelected = selectedMods.includes(singleGroupModule.id);
+
+                                        return (
+                                            <div key={singleGroupModule.id} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '34px' }}>
+                                                <ModuleButton
+                                                    moduleCode={singleGroupModule.id}
+                                                    isSelected={isSelected}
+                                                    isCompulsory={singleGroupModule.compulsoryFor?.includes(selectedMajor)}
+                                                    moduleTreeState={moduleTreeState}
+                                                    compact
+                                                    onToggle={() => onToggleModule(singleGroupModule.id)}
+                                                />
+                                            </div>
+                                        );
+                                    }
 
                                     return (
                                         <div key={groupId} style={{

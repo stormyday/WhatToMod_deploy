@@ -1,6 +1,6 @@
 import SelectionBasketButton from './ModTree_SelectionBasketButton';
 
-export default function SelectedBasket({ selectedMods, selectedMajor, moduleDatabase, moduleTreeState, onToggleModule, onClearAll }) {
+export default function SelectedBasket({ selectedMods, moduleTreeState, onToggleModule, onClearAll }) {
     return (
         <div
             style={{
@@ -43,18 +43,6 @@ export default function SelectedBasket({ selectedMods, selectedMajor, moduleData
                     Clear All
                 </button>
             </div>
-            <div style={{ flex: '0 0 auto' }}>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '8px', color: '#1D9E75', fontWeight: '500' }}>
-                        <span style={{ width: '14px', height: '14px', backgroundColor: '#E1F5EE', display: 'inline-block', borderRadius: '4px', border: '1px solid #1D9E75' }} />
-                        <span>Compulsory</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '8px', color: '#D85A30', fontWeight: '500' }}>
-                        <span style={{ width: '14px', height: '14px', backgroundColor: '#FAECE7', display: 'inline-block', borderRadius: '4px', border: '1px solid #D85A30' }} />
-                        <span>Optional</span>
-                    </div>
-                </div>
-                </div>
             <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', paddingRight: '2px', scrollbarWidth: 'thin' }}>
                 {selectedMods.length === 0 ? (
                     <p style={{ color: '#888780', fontStyle: 'italic', fontSize: '8px' }}>
@@ -63,15 +51,11 @@ export default function SelectedBasket({ selectedMods, selectedMajor, moduleData
                 ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px' }}>
                         {selectedMods.map(id => {
-                            const targetMod = moduleDatabase[id];
-                            const isCompulsoryInBasket = targetMod?.compulsoryFor?.includes(selectedMajor);
-
                             return (
                                 <div key={id} style={{ width: '100%' }}>
                                     <SelectionBasketButton
                                         moduleCode={id}
                                         isSelected={true}
-                                        isCompulsory={isCompulsoryInBasket}
                                         onToggle={() => onToggleModule(id)}
                                         moduleTreeState={moduleTreeState}
                                         fullWidth
