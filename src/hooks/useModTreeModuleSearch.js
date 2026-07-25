@@ -10,6 +10,10 @@ function buildSuggestions(catalog, query) {
   const q = trimmed.toUpperCase();
   return catalog
     .filter((module) => {
+      if (module.searchHidden) {
+        return false;
+      }
+
       const code = module.moduleCode.toUpperCase();
       const title = (module.title ?? "").toUpperCase();
       return code.includes(q) || title.includes(q);

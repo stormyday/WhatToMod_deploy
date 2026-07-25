@@ -588,12 +588,12 @@ export default function ModuleTreePage() {
             </header>
 
             <main style={{ flex: 1, width: '100%' }}>
-                <div style={{ fontFamily: 'sans-serif', padding: '40px', backgroundColor: '#F7F6F2', width: '100%', boxSizing: 'border-box', position: 'center', }}>
+                <div style={{ fontFamily: 'sans-serif', padding: '24px', paddingRight: '150px', backgroundColor: '#F7F6F2', width: '100%', boxSizing: 'border-box', position: 'center', }}>
                     <SelectMajor selectedMajor={selectedMajor} onMajorChange={setSelectedMajor} />
 
-                    <div style={{ width: '100%', maxWidth: 'calc(100vw - 320px)', margin: '0 auto', boxSizing: 'border-box' }}>
-                        <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-                            <div style={{ width: '100%', maxWidth: '1160px' }}>
+                    <div style={{ width: '100%', boxSizing: 'border-box' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
+                            <div style={{ width: '100%', maxWidth: 'none' }}>
                                 <div style={{ marginBottom: '18px' }}>
                                     <ModTreeSearchBar
                                         query={query}
@@ -665,11 +665,9 @@ export default function ModuleTreePage() {
                         </button>
                     </div>
 
-                    <div style={{ position: 'fixed', top: '120px', right: '16px', width: '200px', maxWidth: 'calc(100vw - 32px)', zIndex: 50 }}>
+                    <div style={{ position: 'fixed', top: '120px', right: '24px', width: '280px', maxWidth: 'calc(100vw - 48px)', zIndex: 50 }}>
                         <SelectedBasket
                             selectedMods={basketVisibleMods}
-                            selectedMajor={selectedMajor}
-                            moduleDatabase={moduleDatabase}
                             moduleTreeState={moduleTreeState}
                             onToggleModule={handleToggleModule}
                             onClearAll={handleClearSelectedMods}

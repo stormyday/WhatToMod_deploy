@@ -62,7 +62,18 @@ export default function CaseGRequirements({ row, selectedMajor }) {
                             width: '100%',
                         }}
                     >
-                        Additional Requirements
+                        Additional Requirements 
+                    </div>
+                    <div
+                        style={{
+                            color: '#1f2937',
+                            fontSize: '12px',
+                            textAlign: 'center',
+                            width: '100%',
+                            paddingBottom: '4px',
+                        }}
+                    >
+                        (Add necessary modules to satisfy the following requirements)
                     </div>
                 </div>
             </div>

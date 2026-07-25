@@ -8,7 +8,7 @@ const sentimentCache = {}
 const TOOLTIP_WIDTH = 320
 const TOOLTIP_OFFSET = 12
 
-export default function ModuleButton({ moduleCode, isSelected, isCompulsory, moduleTreeState, onToggle, fullWidth = false, compact = false }) {
+export default function ModuleButton({ moduleCode, isSelected, moduleTreeState, onToggle, fullWidth = false, compact = false }) {
     const [isHovered, setIsHovered] = useState(false)
     const [sentiment, setSentiment] = useState(null)
     const [isLoadingSentiment, setIsLoadingSentiment] = useState(false)
@@ -30,11 +30,9 @@ export default function ModuleButton({ moduleCode, isSelected, isCompulsory, mod
         return () => { isMounted = false; };
     }, [moduleCode]);
 
-    const bgColor = isCompulsory ? '#E1F5EE' : '#FAECE7';
-    const textColor = isCompulsory ? '#1D9E75' : '#D85A30';
-    const borderColor = isSelected
-        ? (isCompulsory ? '#1D9E75' : '#D85A30')
-        : 'rgba(0,0,0,0.1)';
+    const bgColor = isSelected ? '#E1F5EE' : '#F7F6F2';
+    const textColor = isSelected ? '#1D9E75' : '#5F5E5A';
+    const borderColor = isSelected ? '#1D9E75' : 'rgba(0,0,0,0.1)';
 
     const clearHoverTimeout = () => {
         if (hoverTimeout.current) {
@@ -87,7 +85,6 @@ export default function ModuleButton({ moduleCode, isSelected, isCompulsory, mod
 
     useEffect(() => {
         if (!isHovered) {
-            setTooltipPosition(null)
             return
         }
 
@@ -178,7 +175,7 @@ export default function ModuleButton({ moduleCode, isSelected, isCompulsory, mod
                         color: textColor,
                         border: `2px solid ${borderColor}`,
                         fontWeight: isSelected ? '600' : '500',
-                        opacity: isSelected ? 1 : 0.8,
+                        opacity: 1,
                         transition: 'all 0.15s ease-in-out',
                         textAlign: 'left',
                         fontSize: compact ? '12px' : '14px',
