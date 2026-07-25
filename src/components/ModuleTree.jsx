@@ -10,6 +10,7 @@ import SelectedBasket from './ModTree_components/ModTree_SelectionBasket';
 import AcadsPlanner from './AcadsPlanner/ModTree_AcadsPlanner';
 import { ModTreeSearchBar } from './ModTree_components/ModTree_SearchBar';
 import { useModTreeModuleSearch } from '../hooks/useModTreeModuleSearch';
+import "@fontsource/league-spartan/700.css";
 
 const SEMESTER_LABELS = ['Y1S1', 'Y1S2', 'Y2S1', 'Y2S2', 'Y3S1', 'Y3S2', 'Y4S1', 'Y4S2'];
 const PLANNER_COLUMN_LABELS = ['Precluded Modules', ...SEMESTER_LABELS];
@@ -569,125 +570,126 @@ export default function ModuleTreePage() {
     }
  
     return (
-        <div className="min-h-screen bg-[#F7F6F2]">
-                    <div style={{ marginBottom: '16px'}}>
+        <div className="min-h-screen bg-[#F7F6F2] flex flex-col">
+            <header className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between">
+                <h1
+                    className="cursor-pointer text-[#F76F44]"
+                    style={{ fontFamily: "League Spartan", fontWeight: 700 }}
+                    onClick={() => navigate("/dashboard")}
+                >
+                    What<span style={{ color: "#2564F8" }}>To</span>Mod
+                </h1>
                 <button
                     onClick={() => navigate('/dashboard')}
-                    style={{
-                        padding: '8px 14px',
-                        borderRadius: '8px',
-                        border: '1px solid #d1d5db',
-                        backgroundColor: '#fff',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        color: '#1f2937'
-                    }}
+                    className="text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl px-4 py-3 transition"
                 >
-                    Back
+                    ← Back
                 </button>
-            </div>
-            <div style={{ fontFamily: 'sans-serif', padding: '40px', backgroundColor: '#F7F6F2', width: '100%', boxSizing: 'border-box', position: 'center', }}>
-                <SelectMajor selectedMajor={selectedMajor} onMajorChange={setSelectedMajor} />
+            </header>
 
-                <div style={{ width: '100%', maxWidth: 'calc(100vw - 320px)', margin: '0 auto', boxSizing: 'border-box' }}>
-                    <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-                        <div style={{ width: '100%', maxWidth: '1160px' }}>
-                            <div style={{ marginBottom: '18px' }}>
-                                <ModTreeSearchBar
-                                    query={query}
-                                    onChange={setQuery}
-                                    suggestions={suggestions}
-                                    onSelect={handleAddCustomModule}
-                                    onDismiss={() => {
-                                        setQuery('');
-                                        setSuggestions([]);
-                                    }}
-                                    loading={searchLoading}
-                                />
-                                {searchError ? (
-                                    <div style={{ marginTop: '8px', color: '#D85A30', fontSize: '12px' }}>
-                                        {searchError}
-                                    </div>
-                                ) : null}
-                            </div>
-                            {selectedMajor !== 'Empty-Major' ? (
-                                <>
-                                    <ModuleTree
-                                        modulesByLvl={modulesByLvl}
-                                        selectedMods={selectedMods}
-                                        selectedMajor={selectedMajor}
-                                        moduleTreeState={moduleTreeState}
-                                        onToggleModule={handleToggleModule}
-                                        customModules={customModules}
-                                        onRemoveCustomModule={handleRemoveCustomModule}
+            <main style={{ flex: 1, width: '100%' }}>
+                <div style={{ fontFamily: 'sans-serif', padding: '40px', backgroundColor: '#F7F6F2', width: '100%', boxSizing: 'border-box', position: 'center', }}>
+                    <SelectMajor selectedMajor={selectedMajor} onMajorChange={setSelectedMajor} />
+
+                    <div style={{ width: '100%', maxWidth: 'calc(100vw - 320px)', margin: '0 auto', boxSizing: 'border-box' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+                            <div style={{ width: '100%', maxWidth: '1160px' }}>
+                                <div style={{ marginBottom: '18px' }}>
+                                    <ModTreeSearchBar
+                                        query={query}
+                                        onChange={setQuery}
+                                        suggestions={suggestions}
+                                        onSelect={handleAddCustomModule}
+                                        onDismiss={() => {
+                                            setQuery('');
+                                            setSuggestions([]);
+                                        }}
+                                        loading={searchLoading}
                                     />
-                                    <CaseGRequirements row={caseGRow} selectedMajor={selectedMajor} />
-                                </>
-                            ) : (
-                                <div style={{ textAlign: 'center', padding: '40px', color: '#666', fontStyle: 'italic' }}>
-                                    Please select a major from the dropdown above to display your graduation pathway tree.
+                                    {searchError ? (
+                                        <div style={{ marginTop: '8px', color: '#D85A30', fontSize: '12px' }}>
+                                            {searchError}
+                                        </div>
+                                    ) : null}
                                 </div>
-                            )}
+                                {selectedMajor !== 'Empty-Major' ? (
+                                    <>
+                                        <ModuleTree
+                                            modulesByLvl={modulesByLvl}
+                                            selectedMods={selectedMods}
+                                            selectedMajor={selectedMajor}
+                                            moduleTreeState={moduleTreeState}
+                                            onToggleModule={handleToggleModule}
+                                            customModules={customModules}
+                                            onRemoveCustomModule={handleRemoveCustomModule}
+                                        />
+                                        <CaseGRequirements row={caseGRow} selectedMajor={selectedMajor} />
+                                    </>
+                                ) : (
+                                    <div style={{ textAlign: 'center', padding: '40px', color: '#666', fontStyle: 'italic' }}>
+                                        Please select a major from the dropdown above to display your graduation pathway tree.
+                                    </div>
+                                )}
+                            </div>
                         </div>
+                    </div>
+
+                    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginTop: '18px' }}>
+                        {saveStatus === 'success' && (
+                            <div style={{ color: '#166534', backgroundColor: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '10px 14px', fontSize: '13px', fontWeight: '600' }}>
+                                Saved selected modules to your profile.
+                            </div>
+                        )}
+                        {saveStatus === 'error' && (
+                            <div style={{ color: '#b91c1c', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', padding: '10px 14px', fontSize: '13px', fontWeight: '600' }}>
+                                Could not save selected modules. Please try again.
+                            </div>
+                        )}
+                        <button
+                            type="button"
+                            onClick={handleSaveSelectedModules}
+                            disabled={savingProfile || selectedMods.length === 0}
+                            style={{
+                                padding: '12px 22px',
+                                borderRadius: '999px',
+                                border: 'none',
+                                backgroundColor: selectedMods.length === 0 ? '#cbd5e1' : '#E95420',
+                                color: '#ffffff',
+                                cursor: savingProfile || selectedMods.length === 0 ? 'not-allowed' : 'pointer',
+                                fontSize: '14px',
+                                fontWeight: '700',
+                                boxShadow: '0 4px 12px rgba(233, 84, 32, 0.18)',
+                            }}
+                        >
+                            {savingProfile ? 'Saving...' : 'Save selected modules to profile'}
+                        </button>
+                    </div>
+
+                    <div style={{ position: 'fixed', top: '120px', right: '16px', width: '200px', maxWidth: 'calc(100vw - 32px)', zIndex: 50 }}>
+                        <SelectedBasket
+                            selectedMods={basketVisibleMods}
+                            selectedMajor={selectedMajor}
+                            moduleDatabase={moduleDatabase}
+                            moduleTreeState={moduleTreeState}
+                            onToggleModule={handleToggleModule}
+                            onClearAll={handleClearSelectedMods}
+                        />
                     </div>
                 </div>
 
-                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginTop: '18px' }}>
-                    {saveStatus === 'success' && (
-                        <div style={{ color: '#166534', backgroundColor: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '10px 14px', fontSize: '13px', fontWeight: '600' }}>
-                            Saved selected modules to your profile.
-                        </div>
-                    )}
-                    {saveStatus === 'error' && (
-                        <div style={{ color: '#b91c1c', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', padding: '10px 14px', fontSize: '13px', fontWeight: '600' }}>
-                            Could not save selected modules. Please try again.
-                        </div>
-                    )}
-                    <button
-                        type="button"
-                        onClick={handleSaveSelectedModules}
-                        disabled={savingProfile || selectedMods.length === 0}
-                        style={{
-                            padding: '12px 22px',
-                            borderRadius: '999px',
-                            border: 'none',
-                            backgroundColor: selectedMods.length === 0 ? '#cbd5e1' : '#E95420',
-                            color: '#ffffff',
-                            cursor: savingProfile || selectedMods.length === 0 ? 'not-allowed' : 'pointer',
-                            fontSize: '14px',
-                            fontWeight: '700',
-                            boxShadow: '0 4px 12px rgba(233, 84, 32, 0.18)',
-                        }}
-                    >
-                        {savingProfile ? 'Saving...' : 'Save selected modules to profile'}
-                    </button>
-                </div>
-
-                <div style={{ position: 'fixed', top: '120px', right: '16px', width: '200px', maxWidth: 'calc(100vw - 32px)', zIndex: 50 }}>
-                    <SelectedBasket
-                        selectedMods={basketVisibleMods}
-                        selectedMajor={selectedMajor}
-                        moduleDatabase={moduleDatabase}
-                        moduleTreeState={moduleTreeState}
-                        onToggleModule={handleToggleModule}
-                        onClearAll={handleClearSelectedMods}
-                    />
-                </div>
-            </div>
-
-
-            <AcadsPlanner
-                plannerModules={plannerModules}
-                selectedMods={selectedMods}
-                selectedMajor={selectedMajor}
-                moduleDatabase={moduleDatabase}
-                moduleTreeState={moduleTreeState}
-                onDropModuleToSemester={handleDropModuleToSemester}
-                onClearSemesterModules={handleClearSemesterModules}
-                onRemoveModuleFromPlanner={handleRemoveModuleFromPlanner}
-                onToggleModule={handleToggleModule}
-                semesterLabels={PLANNER_COLUMN_LABELS}
-            />
+                <AcadsPlanner
+                    plannerModules={plannerModules}
+                    selectedMods={selectedMods}
+                    selectedMajor={selectedMajor}
+                    moduleDatabase={moduleDatabase}
+                    moduleTreeState={moduleTreeState}
+                    onDropModuleToSemester={handleDropModuleToSemester}
+                    onClearSemesterModules={handleClearSemesterModules}
+                    onRemoveModuleFromPlanner={handleRemoveModuleFromPlanner}
+                    onToggleModule={handleToggleModule}
+                    semesterLabels={PLANNER_COLUMN_LABELS}
+                />
+            </main>
         </div>
     );
 }

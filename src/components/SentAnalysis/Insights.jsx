@@ -4,7 +4,6 @@ import { useModuleSearch } from "../../hooks/useModuleSearch";
 import { SearchBar } from "./SearchBar";
 import { SentimentSummary } from "./SentimentSummary";
 import { ReviewsList } from "./ReviewsList";
-import { ModuleDetails } from "./ModuleDetails";
 import { SkeletonLoader } from "./SkeletonLoader";
 import { AspectBreakdown } from "./AspectBreakdown";
 import "./SentDash.css";
@@ -40,7 +39,10 @@ export default function Insights() {
     <div className="app">
       <header className="app-header">
         <div>
-          <button id="back-button" onClick={() => {
+          <button
+            id="back-button"
+            className="text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl px-4 py-3 transition"
+            onClick={() => {
               if (location.state?.from === '/moduleTree' && location.state.moduleTreeState) {
                 navigate('/moduleTree', { state: location.state.moduleTreeState });
               } else if (moduleCode) {
@@ -48,8 +50,9 @@ export default function Insights() {
               } else {
                 navigate('/dashboard');
               }
-            }}>
-            Back
+            }}
+          >
+            ← Back
           </button>
         </div>
         <div className="header-inner">
