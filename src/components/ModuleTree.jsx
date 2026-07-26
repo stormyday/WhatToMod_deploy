@@ -348,9 +348,8 @@ export default function ModuleTreePage() {
         );
     };
  
-    const handleClearSelectedMods = () => {
-        setSelectedMods([]);
-        setPlannerModules(() => createEmptyPlannerModules());
+    const handleClearBasketModules = () => {
+        setSelectedMods(current => current.filter((id) => plannerModuleIds.includes(id)));
     };
 
     const handleAddCustomModule = (module) => {
@@ -693,7 +692,7 @@ export default function ModuleTreePage() {
                             selectedMods={basketVisibleMods}
                             moduleTreeState={moduleTreeState}
                             onToggleModule={handleToggleModule}
-                            onClearAll={handleClearSelectedMods}
+                            onClearAll={handleClearBasketModules}
                         />
                     </div>
                 </div>
