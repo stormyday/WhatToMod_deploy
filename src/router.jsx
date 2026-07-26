@@ -8,6 +8,7 @@ import Insights from "./components/SentAnalysis/Insights"
 import LecturerPage from "./components/SentAnalysis/LecturerPage";
 import ProfilePage from "./components/ProfilePage";
 import GPACalculator from "./components/GPACalculator";
+import ProgressTracker from "./components/ProgressTracker";
 
 export const router = createBrowserRouter([
     {path: "/", element: <Navigate to="/signin" replace />},
@@ -19,5 +20,6 @@ export const router = createBrowserRouter([
     {path: "/insights/:moduleCode", element: <ProtectedRoute><Insights /></ProtectedRoute>},
     {path: "/professor/:name", element: <ProtectedRoute><LecturerPage /></ProtectedRoute>},
     {path: "/profilePage", element: <ProtectedRoute><ProfilePage /></ProtectedRoute>},
-    {path: "/gpaCalculator", element: <ProtectedRoute><GPACalculator /></ProtectedRoute>}
+    {path: "/gpaCalculator", element: <ProtectedRoute><GPACalculator /></ProtectedRoute>},
+    {path: "/progressTracker", element: <ProtectedRoute><ProgressTracker /></ProtectedRoute>}
 ]);

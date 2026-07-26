@@ -5,8 +5,6 @@ const DEFAULT_PLANNER_COLUMNS = ['Precluded Modules', 'Y1S1', 'Y1S2', 'Y2S1', 'Y
 export default function AcadsPlanner({
     plannerModules,
     selectedMods,
-    selectedMajor,
-    moduleDatabase,
     moduleTreeState,
     onDropModuleToSemester,
     onClearSemesterModules,
@@ -18,7 +16,7 @@ export default function AcadsPlanner({
 
     return (
         <section>
-            <div style={{ marginTop: '50vh', fontSize: '32px', fontWeight: '600', color: '#1f2937', marginBottom: '12px', paddingLeft: '16px' }}>
+            <div style={{ marginTop: '20vh', fontSize: '32px', fontWeight: '600', color: '#1f2937', marginBottom: '12px', paddingLeft: '16px' }}>
                 Module Planner
             </div>
             <div
@@ -110,15 +108,11 @@ export default function AcadsPlanner({
                                         <span>Drop modules here</span>
                                     ) : (
                                         semesterModules.map((moduleId) => {
-                                            const moduleMeta = moduleDatabase[moduleId];
-                                            const isCompulsoryInPlanner = moduleMeta?.compulsoryFor?.includes(selectedMajor);
-
                                             return (
                                                 <div key={moduleId} style={{ width: '100%' }}>
                                                     <SelectionBasketButton
                                                         moduleCode={moduleId}
                                                         isSelected={selectedMods.includes(moduleId)}
-                                                        isCompulsory={isCompulsoryInPlanner}
                                                         onToggle={() => onToggleModule(moduleId)}
                                                         onRemove={() => onRemoveModuleFromPlanner(moduleId)}
                                                         moduleTreeState={moduleTreeState}
