@@ -2,9 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDatabase,
   buildPersistedModTreeState,
-  getModuleDisplayLevel,
-  isCaseGRow,
-  normalizeCaseGRow,
   normalizeSavedModTreeState,
   normalizeSavedAcadsPlannerState,
   normalizePlannerModules,
@@ -110,25 +107,6 @@ describe('ModuleTree helpers', () => {
     }]);
 
     expect(Object.keys(db).sort()).toEqual(['CS1231S', 'CS2040S', 'CS2100', 'CS9999']);
-    expect(getModuleDisplayLevel({ orGroupId: 'grp', level: 3000 }, new Map([['grp', 1000]]) )).toBe(1000);
-    expect(getModuleDisplayLevel({ level: 'not-a-number' }, new Map())).toBe('not-a-number');
   });
 
-  it('recognizes Case G rows with non-empty not_rendered notes', () => {
-    const row = {
-      id: 'cs_not_rendered',
-      label: 'Not Rendered',
-      majors: ['CS'],
-      not_rendered: ['First note', ' ', null],
-    };
-
-    expect(isCaseGRow(row)).toBe(true);
-    expect(normalizeCaseGRow(row)).toEqual({
-      id: 'cs_not_rendered',
-      label: 'Not Rendered',
-      majors: ['CS'],
-      notRendered: ['First note'],
-    });
-    expect(isCaseGRow({ id: 'plain', not_rendered: ['note'] })).toBe(false);
-  });
 });

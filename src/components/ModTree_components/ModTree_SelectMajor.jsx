@@ -47,6 +47,7 @@ export default function SelectMajor({ selectedMajor, onMajorChange }) {
                 <option value="Industrial and Systems Engineering" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Industrial and Systems Engineering</option>
                 <option value="Information Security" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Information Security</option>
                 <option value="Life Sciences" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Life Sciences</option>
+                <option value="Mathematics" style={{ backgroundColor: '#ffffff', textAlign: 'center', color: '#111827' }}>Mathematics</option>
             </select>
         </div>
     )
