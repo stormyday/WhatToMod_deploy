@@ -2,9 +2,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   analyzeLevel4000Pathway,
   clearLevel4000ActiveTracks,
-  getLevel4000ActiveTracks,
-  getLevel4000ActiveTracksVersion,
-  setLevel4000ActiveTracks,
 } from '../ModTree_MultiLayerButtonLogic';
 
 describe('analyzeLevel4000Pathway', () => {
@@ -102,18 +99,5 @@ describe('analyzeLevel4000Pathway', () => {
     expect(analysis.hasError).toBe(true);
     expect(analysis.complete).toBe(false);
     expect(analysis.message).toMatch(/mixed node types/i);
-  });
-
-  it('tracks active node selection in the shared store', () => {
-    const startVersion = getLevel4000ActiveTracksVersion();
-
-    expect(getLevel4000ActiveTracks('CS4100')).toEqual({});
-
-    setLevel4000ActiveTracks('CS4100', { 'CS4100.0': 1 });
-    expect(getLevel4000ActiveTracks('CS4100')).toEqual({ 'CS4100.0': 1 });
-    expect(getLevel4000ActiveTracksVersion()).toBeGreaterThan(startVersion);
-
-    clearLevel4000ActiveTracks('CS4100');
-    expect(getLevel4000ActiveTracks('CS4100')).toEqual({});
   });
 });

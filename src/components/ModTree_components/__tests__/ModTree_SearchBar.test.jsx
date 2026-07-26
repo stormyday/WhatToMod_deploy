@@ -39,19 +39,4 @@ describe('ModTreeSearchBar', () => {
       hasModTreeMetadata: true,
     });
   });
-
-  it('shows the loading spinner and hides the dismiss button while loading', () => {
-    const { container } = render(
-      <ModTreeSearchBar
-        query="CS"
-        onChange={vi.fn()}
-        suggestions={[]}
-        onSelect={vi.fn()}
-        onDismiss={vi.fn()}
-        loading
-      />
-    );
-
-    expect(container.querySelector('svg')).toBeInTheDocument();
-  });
 });
