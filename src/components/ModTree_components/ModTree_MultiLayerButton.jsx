@@ -6,7 +6,7 @@ import {
     clearLevel4000ActiveTracks,
     getLevel4000ActiveTracks,
     setLevel4000ActiveTracks,
-} from './ModTree_Level4000Traversal';
+} from './ModTree_MultiLayerButtonLogic';
 
 function buildPillarDropdownShape(node) {
     return {
@@ -14,7 +14,6 @@ function buildPillarDropdownShape(node) {
         // `pillarName` nodes are structural wrappers, not lookup keys; the dropdown only
         // needs the label and child module options.
         label: node.label,
-        compulsoryFor: node.rawNode?.compulsoryFor ?? node.rawNode?.compulsory_for ?? [],
         options: Array.isArray(node.childrenGroup?.nodes)
             ? node.childrenGroup.nodes.map((child) => ({
                 id: child.rawNode?.id ?? child.pathKey,
@@ -30,7 +29,6 @@ function buildModuleButtonShape(node) {
         id: node.rawNode?.id,
         label: node.label,
         description: node.rawNode?.description ?? '',
-        compulsoryFor: node.rawNode?.compulsoryFor ?? node.rawNode?.compulsory_for ?? [],
     };
 }
 
@@ -151,7 +149,7 @@ function PathwayTabs({ analysis, moduleId, setActiveTracks, renderNode }) {
     );
 }
 
-function renderModuleNode(node, selectedMods, selectedMajor, moduleTreeState, onToggleModule) {
+function renderModuleNode(node, selectedMods, moduleTreeState, onToggleModule) {
     const moduleShape = buildModuleButtonShape(node);
 
     if (!moduleShape.id) {
@@ -166,7 +164,6 @@ function renderModuleNode(node, selectedMods, selectedMajor, moduleTreeState, on
     }
 
     const isSelected = Array.isArray(selectedMods) && selectedMods.includes(moduleShape.id);
-    const isCompulsory = Boolean(moduleShape.compulsoryFor?.includes(selectedMajor));
 
     return (
         <div
@@ -182,7 +179,6 @@ function renderModuleNode(node, selectedMods, selectedMajor, moduleTreeState, on
             <ModuleButton
                 moduleCode={moduleShape.id}
                 isSelected={isSelected}
-                isCompulsory={isCompulsory}
                 moduleTreeState={moduleTreeState}
                 compact
                 fullWidth
@@ -199,7 +195,7 @@ function renderModuleNode(node, selectedMods, selectedMajor, moduleTreeState, on
     );
 }
 
-function renderPillarNode(node, selectedMods, selectedMajor, moduleTreeState, onToggleModule) {
+function renderPillarNode(node, selectedMods, moduleTreeState, onToggleModule) {
     const pillarShape = buildPillarDropdownShape(node);
     const hasValidChildren = Array.isArray(node.childrenGroup?.nodes) && node.childrenGroup.nodes.length > 0;
 
@@ -241,7 +237,6 @@ function renderPillarNode(node, selectedMods, selectedMajor, moduleTreeState, on
                 <PillarDropdown
                     pillarModule={pillarShape}
                     selectedMods={selectedMods}
-                    selectedMajor={selectedMajor}
                     moduleTreeState={moduleTreeState}
                     onToggleModule={onToggleModule}
                 />
@@ -258,7 +253,7 @@ function renderPillarNode(node, selectedMods, selectedMajor, moduleTreeState, on
     );
 }
 
-function renderGroupNode(analysis, moduleId, selectedMods, selectedMajor, moduleTreeState, onToggleModule, setActiveTracks, renderNode) {
+function renderGroupNode(analysis, moduleId, selectedMods, moduleTreeState, onToggleModule, setActiveTracks, renderNode) {
     if (!analysis || analysis.kind !== 'group') {
         if (analysis?.kind === 'empty') {
             return (
@@ -309,7 +304,7 @@ function renderGroupNode(analysis, moduleId, selectedMods, selectedMajor, module
     if (analysis.groupType === 'pillar') {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', alignItems: 'center' }}>
-                {analysis.nodes.map((node) => renderPillarNode(node, selectedMods, selectedMajor, moduleTreeState, onToggleModule))}
+                {analysis.nodes.map((node) => renderPillarNode(node, selectedMods, moduleTreeState, onToggleModule))}
             </div>
         );
     }
@@ -317,7 +312,7 @@ function renderGroupNode(analysis, moduleId, selectedMods, selectedMajor, module
     if (analysis.groupType === 'module') {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', alignItems: 'center' }}>
-                {analysis.nodes.map((node) => renderModuleNode(node, selectedMods, selectedMajor, moduleTreeState, onToggleModule))}
+                {analysis.nodes.map((node) => renderModuleNode(node, selectedMods, moduleTreeState, onToggleModule))}
             </div>
         );
     }
@@ -330,7 +325,7 @@ function renderGroupNode(analysis, moduleId, selectedMods, selectedMajor, module
     );
 }
 
-export default function Level4000Pathway({ nodeData, selectedMods, selectedMajor, moduleTreeState, onToggleModule }) {
+export default function Level4000Pathway({ nodeData, selectedMods, moduleTreeState, onToggleModule }) {
     const moduleId = nodeData?.id ?? null;
     const [activeTracks, setActiveTracks] = useState(() => getLevel4000ActiveTracks(moduleId));
 
@@ -364,11 +359,11 @@ export default function Level4000Pathway({ nodeData, selectedMods, selectedMajor
         }
 
         if (nodeAnalysis.type === 'module') {
-            return renderModuleNode(nodeAnalysis, selectedMods, selectedMajor, moduleTreeState, onToggleModule);
+            return renderModuleNode(nodeAnalysis, selectedMods, moduleTreeState, onToggleModule);
         }
 
         if (nodeAnalysis.type === 'pillar') {
-            return renderPillarNode(nodeAnalysis, selectedMods, selectedMajor, moduleTreeState, onToggleModule);
+            return renderPillarNode(nodeAnalysis, selectedMods, moduleTreeState, onToggleModule);
         }
 
         if (nodeAnalysis.type === 'pathway') {
@@ -383,7 +378,7 @@ export default function Level4000Pathway({ nodeData, selectedMods, selectedMajor
                     }}
                 >
                     {nodeAnalysis.childrenGroup?.kind === 'group' || nodeAnalysis.childrenGroup?.kind === 'mixed'
-                        ? renderGroupNode(nodeAnalysis.childrenGroup, moduleId, selectedMods, selectedMajor, moduleTreeState, onToggleModule, setActiveTracks, renderNode)
+                        ? renderGroupNode(nodeAnalysis.childrenGroup, moduleId, selectedMods, moduleTreeState, onToggleModule, setActiveTracks, renderNode)
                         : (
                             <AnalysisMessage
                                 title="No data available"
@@ -464,7 +459,7 @@ export default function Level4000Pathway({ nodeData, selectedMods, selectedMajor
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', width: '100%' }}>
-                {renderGroupNode(analysis, moduleId, selectedMods, selectedMajor, moduleTreeState, onToggleModule, setActiveTracks, renderNode)}
+                {renderGroupNode(analysis, moduleId, selectedMods, moduleTreeState, onToggleModule, setActiveTracks, renderNode)}
             </div>
         </div>
     );

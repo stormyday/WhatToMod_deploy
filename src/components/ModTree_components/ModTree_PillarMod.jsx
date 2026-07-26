@@ -12,9 +12,8 @@ function chunkOptions(options, chunkSize) {
     return chunks;
 }
 
-export default function PillarDropdown({ pillarModule, selectedMods, selectedMajor, moduleTreeState, onToggleModule }) {
+export default function PillarDropdown({ pillarModule, selectedMods, moduleTreeState, onToggleModule }) {
     const [isOpen, setIsOpen] = useState(false);
-    const compulsoryFor = pillarModule.compulsoryFor ?? pillarModule.compulsory_for ?? [];
 
     const selectedOption = pillarModule.options.find(opt => selectedMods.includes(opt.id));
     const optionColumns = chunkOptions(pillarModule.options, OPTIONS_PER_COLUMN);
@@ -94,17 +93,11 @@ export default function PillarDropdown({ pillarModule, selectedMods, selectedMaj
                             >
                                 {columnOptions.map((option) => {
                                     const isSelected = selectedMods.includes(option.id);
-                                    // Inherit compulsory status from the pillar, resolved against the active major.
-                                    // Falls back gracefully if selectedMajor is not provided.
-                                    const isCompulsory = selectedMajor
-                                        ? compulsoryFor.includes(selectedMajor)
-                                        : compulsoryFor.length > 0;
                                     return (
                                         <ModuleButton
                                             key={option.id}
                                             moduleCode={option.id}
                                             isSelected={isSelected}
-                                            isCompulsory={isCompulsory}
                                             moduleTreeState={moduleTreeState}
                                             compact
                                             onToggle={() => {

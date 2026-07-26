@@ -80,7 +80,6 @@ function rowToModule(row) {
         level: row.level,
         description: row.description,
         majors: row.majors ?? [],
-        compulsoryFor: row.compulsory_for ?? [],
         orGroupId: row.or_group_id ?? undefined,
         isPillar: row.is_pillar,
         isSingleModulePillar: row.is_single_module_pillar,
@@ -150,13 +149,23 @@ function normalizePlannerModules(plannerModules) {
     );
 }
 
+function normalizeSavedAcadsPlannerState(savedState) {
+    if (!savedState || typeof savedState !== 'object') {
+        return createEmptyPlannerModules();
+    }
+
+    return normalizePlannerModules(savedState.plannerModules ?? savedState);
+}
+
 function buildPersistedModTreeState({
     selectedMajor,
     selectedMods,
     customModules,
     plannerModules,
+    previousState = {},
 }) {
     return {
+        ...previousState,
         selectedMajor: selectedMajor ?? 'Empty-Major',
         selectedMods: Array.isArray(selectedMods)
             ? selectedMods.map(normalizeModuleCode).filter(Boolean)
@@ -174,6 +183,7 @@ function normalizeSavedModTreeState(savedState) {
     }
 
     return {
+        ...savedState,
         selectedMajor: typeof savedState.selectedMajor === 'string' && savedState.selectedMajor.trim()
             ? savedState.selectedMajor
             : 'Empty-Major',
@@ -220,6 +230,7 @@ export default function ModuleTreePage() {
     const [plannerModules, setPlannerModules] = useState(() => createEmptyPlannerModules());
     const [savingProfile, setSavingProfile] = useState(false);
     const [saveStatus, setSaveStatus] = useState(null);
+    const [savedModtreeState, setSavedModtreeState] = useState(null);
  
     // Fetch all modules from Supabase once on mount
     useEffect(() => {
@@ -227,7 +238,7 @@ export default function ModuleTreePage() {
             setLoading(true);
             const { data, error } = await supabase
                 .from('modules')
-                .select('id,label,level,description,majors,not_rendered,compulsory_for,or_group_id,is_pillar,is_single_module_pillar,pillar_label,is_level4000_pathway,options,"is_requirement_group","Requirements","RequirementsPillar"');
+                .select('id,label,level,description,majors,not_rendered,or_group_id,is_pillar,is_single_module_pillar,pillar_label,is_level4000_pathway,options,"is_requirement_group","Requirements","RequirementsPillar"');
 
             if (error) {
                 console.error('Error fetching modules:', error);
@@ -249,6 +260,7 @@ export default function ModuleTreePage() {
                 setAllModules(modules);
                 setCaseGRows(caseG);
                 setModuleDatabase(buildDatabase(modules));
+                setSavedModtreeState((current) => current ?? {});
             }
             setLoading(false);
         }
@@ -262,17 +274,18 @@ export default function ModuleTreePage() {
         if (savedState) {
             const restoreFrame = window.requestAnimationFrame(() => {
                 setSelectedMajor(savedState.selectedMajor ?? 'Empty-Major');
-                setSelectedMods(Array.isArray(savedState.selectedMods)
-                    ? savedState.selectedMods.map(normalizeModuleCode).filter(Boolean)
-                    : []);
-                setCustomModules(Array.isArray(savedState.customModules)
-                    ? savedState.customModules.map(normalizeCustomModuleRecord).filter(Boolean)
-                    : []);
-                setPlannerModules(normalizePlannerModules(savedState.plannerModules));
-                if (typeof savedState.scrollPosition === 'number') {
-                    window.scrollTo({ top: savedState.scrollPosition });
-                }
-            });
+            setSelectedMods(Array.isArray(savedState.selectedMods)
+                ? savedState.selectedMods.map(normalizeModuleCode).filter(Boolean)
+                : []);
+            setCustomModules(Array.isArray(savedState.customModules)
+                ? savedState.customModules.map(normalizeCustomModuleRecord).filter(Boolean)
+                : []);
+            setPlannerModules(normalizePlannerModules(savedState.plannerModules));
+            setSavedModtreeState(savedState);
+            if (typeof savedState.scrollPosition === 'number') {
+                window.scrollTo({ top: savedState.scrollPosition });
+            }
+        });
 
             return () => window.cancelAnimationFrame(restoreFrame);
         }
@@ -290,7 +303,7 @@ export default function ModuleTreePage() {
         const restoreProfileState = async () => {
             const { data, error } = await supabase
                 .from('profiles')
-                .select('modtree_state')
+                .select('modtree_state, acads_planner_state')
                 .eq('id', userId)
                 .maybeSingle();
 
@@ -304,14 +317,19 @@ export default function ModuleTreePage() {
             }
 
             const restoredState = normalizeSavedModTreeState(data?.modtree_state);
-            if (!restoredState) {
-                return;
+            const restoredPlannerState = normalizeSavedAcadsPlannerState(data?.acads_planner_state);
+            const hasSavedPlannerState = data?.acads_planner_state != null;
+
+            if (restoredState) {
+                setSelectedMajor(restoredState.selectedMajor);
+                setSelectedMods(restoredState.selectedMods);
+                setCustomModules(restoredState.customModules);
+                setSavedModtreeState(restoredState);
             }
 
-            setSelectedMajor(restoredState.selectedMajor);
-            setSelectedMods(restoredState.selectedMods);
-            setCustomModules(restoredState.customModules);
-            setPlannerModules(restoredState.plannerModules);
+            setPlannerModules(hasSavedPlannerState
+                ? restoredPlannerState
+                : restoredState?.plannerModules ?? createEmptyPlannerModules());
         };
 
         restoreProfileState();
@@ -474,6 +492,7 @@ export default function ModuleTreePage() {
             selectedMods,
             customModules,
             plannerModules,
+            previousState: savedModtreeState ?? {},
         });
         const gradesByModuleCode = new Map(
             existingPastGrades
@@ -494,15 +513,19 @@ export default function ModuleTreePage() {
         });
 
         const nextPastGrades = Array.from(gradesByModuleCode.values());
+        const nextAcadsPlannerState = normalizeSavedAcadsPlannerState({ plannerModules });
 
         const { error: saveError } = await supabase.from('profiles').upsert({
             id: user.id,
             past_grades: nextPastGrades,
             modtree_state: nextModtreeState,
+            acads_planner_state: nextAcadsPlannerState,
         });
 
         if (saveError) {
             console.error('Error saving selected modules to profile:', saveError);
+        } else {
+            setSavedModtreeState(nextModtreeState);
         }
 
         setSavingProfile(false);
@@ -637,12 +660,12 @@ export default function ModuleTreePage() {
                     <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginTop: '18px' }}>
                         {saveStatus === 'success' && (
                             <div style={{ color: '#166534', backgroundColor: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '10px 14px', fontSize: '13px', fontWeight: '600' }}>
-                                Saved selected modules to your profile.
+                                Saved selected modules and Acads Planner state to your profile.
                             </div>
                         )}
                         {saveStatus === 'error' && (
                             <div style={{ color: '#b91c1c', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', padding: '10px 14px', fontSize: '13px', fontWeight: '600' }}>
-                                Could not save selected modules. Please try again.
+                                Could not save selected modules and Acads Planner state. Please try again.
                             </div>
                         )}
                         <button
@@ -661,7 +684,7 @@ export default function ModuleTreePage() {
                                 boxShadow: '0 4px 12px rgba(233, 84, 32, 0.18)',
                             }}
                         >
-                            {savingProfile ? 'Saving...' : 'Save selected modules to profile'}
+                            {savingProfile ? 'Saving...' : 'Save modules and planner state to profile'}
                         </button>
                     </div>
 

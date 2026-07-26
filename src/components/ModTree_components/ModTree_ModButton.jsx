@@ -8,7 +8,17 @@ const sentimentCache = {}
 const TOOLTIP_WIDTH = 320
 const TOOLTIP_OFFSET = 12
 
-export default function ModuleButton({ moduleCode, isSelected, moduleTreeState, onToggle, fullWidth = false, compact = false }) {
+export default function ModuleButton({
+    moduleCode,
+    isSelected,
+    moduleTreeState,
+    onToggle,
+    fullWidth = false,
+    compact = false,
+    draggable = false,
+    onDragStart,
+    onDragEnd,
+}) {
     const [isHovered, setIsHovered] = useState(false)
     const [sentiment, setSentiment] = useState(null)
     const [isLoadingSentiment, setIsLoadingSentiment] = useState(false)
@@ -167,7 +177,14 @@ export default function ModuleButton({ moduleCode, isSelected, moduleTreeState, 
             >
                 <button
                     ref={buttonRef}
-                    onClick={onToggle}
+                    draggable={draggable}
+                    onDragStart={draggable ? (event) => {
+                        event.dataTransfer.effectAllowed = 'move';
+                        event.dataTransfer.setData('text/plain', moduleCode);
+                        onDragStart?.(event);
+                    } : undefined}
+                    onDragEnd={onDragEnd}
+                    onClick={() => onToggle?.()}
                     style={{
                         width: fullWidth ? '100%' : 'auto',
                         padding: compact ? '8px 12px' : '10px 16px', borderRadius: '10px', cursor: 'pointer',
@@ -179,7 +196,8 @@ export default function ModuleButton({ moduleCode, isSelected, moduleTreeState, 
                         transition: 'all 0.15s ease-in-out',
                         textAlign: 'left',
                         fontSize: compact ? '12px' : '14px',
-                        lineHeight: 1.3
+                        lineHeight: 1.3,
+                        cursor: draggable ? 'grab' : 'pointer',
                     }}>
                     {displayCode}
                 </button>

@@ -18,6 +18,27 @@ function Dashboard() {
     }
     };
 
+    const handleCardClick = (title) => {
+        if (title === "AcadsPlanner") {
+            navigate("/moduleTree");
+            return;
+        }
+
+        if (title === "ModSearch") {
+            navigate("/insights");
+            return;
+        }
+
+        if (title === "GPA Calculator") {
+            navigate("/gpaCalculator");
+            return;
+        }
+
+        if (title === "Progress Tracker") {
+            navigate("/progressTracker");
+        }
+    };
+
     return (
     <div className="min-h-screen bg-[#F6EDDC]">
         {/* Navbar */}
@@ -75,7 +96,7 @@ function Dashboard() {
                 color: "#2D4CC8",
             },
             ].map(({ title, desc, tag, color }) => (
-            <div key={title} onClick={() => title === "AcadsPlanner" ? navigate("/moduleTree") : title == "ModSearch" ? navigate("/insights") : title === "GPA Calculator" ? navigate("/gpaCalculator") : null}
+            <div key={title} onClick={() => handleCardClick(title)}
                 className={`bg-white rounded-2xl border border-gray-200 px-7 py-6 
                 hover:border-[#2D4CC8] hover:shadow-md transition cursor-pointer group`}>
                 <div className="flex items-start justify-between mb-3">

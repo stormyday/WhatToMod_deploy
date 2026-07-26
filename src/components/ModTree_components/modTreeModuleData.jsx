@@ -2,7 +2,7 @@ import { supabase } from "../../supabaseClient";
 import { fetchModuleDetail, fetchModuleList } from "../../utils/api";
 
 const MODULE_COLUMNS =
-  'id,label,description,majors,not_rendered,compulsory_for,or_group_id,is_pillar,is_single_module_pillar,pillar_label,is_level4000_pathway,options,"is_requirement_group","Requirements","RequirementsPillar"';
+  'id,label,description,majors,not_rendered,or_group_id,is_pillar,is_single_module_pillar,pillar_label,is_level4000_pathway,options,"is_requirement_group","Requirements","RequirementsPillar"';
 const PREREQ_COLUMNS =
   'module_code,title,module_credit,department,faculty,prerequisite_raw,corequisite_raw,preclusion_raw,prereq_codes,coreq_codes,preclusion_codes,prereq_tree';
 

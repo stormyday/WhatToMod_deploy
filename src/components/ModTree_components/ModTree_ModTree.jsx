@@ -7,7 +7,7 @@ import {
     analyzeLevel4000Pathway,
     getLevel4000ActiveTracksVersion,
     subscribeLevel4000ActiveTracks,
-} from './ModTree_Level4000Traversal';
+} from './ModTree_MultiLayerButtonLogic';
 
 function satisfiesLevel4000Pathway(moduleConfig, selectedMods) {
     return analyzeLevel4000Pathway(moduleConfig, selectedMods).complete;
@@ -58,10 +58,10 @@ function getLayerCompletionState(layer, selectedMods) {
 export default function ModuleTree({
     modulesByLvl,
     selectedMods,
-    selectedMajor,
     moduleTreeState,
     onToggleModule,
     customModules = [],
+    customModuleEmptyMessage = 'Search above to add modules here.',
 }) {
     const level4000ActiveTracksVersion = useSyncExternalStore(
         subscribeLevel4000ActiveTracks,
@@ -127,7 +127,7 @@ export default function ModuleTree({
                             width: '100%',
                         }}
                     >
-                        Search above to add modules here.
+                        {customModuleEmptyMessage}
                     </div>
                 ) : (
                     customModules.map((customModule) => {
@@ -139,7 +139,6 @@ export default function ModuleTree({
                                 <ModuleButton
                                     moduleCode={moduleCode}
                                     isSelected={isSelected}
-                                    isCompulsory={false}
                                     moduleTreeState={moduleTreeState}
                                     compact
                                     onToggle={() => onToggleModule(moduleCode)}
@@ -176,8 +175,6 @@ export default function ModuleTree({
                         }}>
                             {layer.map((modInTree) => {
                                 const groupId = modInTree.orGroupId;
-                                // Compute once, reuse across all branches below
-                                const isCompulsory = modInTree.compulsoryFor?.includes(selectedMajor);
 
                                 // ── isPillar ──────────────────────────────────────────
                                 if (modInTree.isPillar) {
@@ -186,7 +183,6 @@ export default function ModuleTree({
                                             <PillarDropdown
                                                 pillarModule={modInTree}
                                                 selectedMods={selectedMods}
-                                                selectedMajor={selectedMajor}
                                                 moduleTreeState={moduleTreeState}
                                                 onToggleModule={onToggleModule}
                                             />
@@ -201,7 +197,6 @@ export default function ModuleTree({
                                             <RequirementGroup
                                                 nodeData={modInTree}
                                                 selectedMods={selectedMods}
-                                                selectedMajor={selectedMajor}
                                                 moduleTreeState={moduleTreeState}
                                                 onToggleModule={onToggleModule}
                                             />
@@ -225,7 +220,6 @@ export default function ModuleTree({
                                             <ModuleButton
                                                 moduleCode={modInTree.id}
                                                 isSelected={isSelected}
-                                                isCompulsory={isCompulsory}
                                                 moduleTreeState={moduleTreeState}
                                                 compact
                                                 onToggle={() => onToggleModule(modInTree.id)}
@@ -241,7 +235,6 @@ export default function ModuleTree({
                                             <Level4000Pathway
                                                 nodeData={modInTree}
                                                 selectedMods={selectedMods}
-                                                selectedMajor={selectedMajor}
                                                 moduleTreeState={moduleTreeState}
                                                 onToggleModule={onToggleModule}
                                             />
@@ -265,7 +258,6 @@ export default function ModuleTree({
                                                 <ModuleButton
                                                     moduleCode={singleGroupModule.id}
                                                     isSelected={isSelected}
-                                                    isCompulsory={singleGroupModule.compulsoryFor?.includes(selectedMajor)}
                                                     moduleTreeState={moduleTreeState}
                                                     compact
                                                     onToggle={() => onToggleModule(singleGroupModule.id)}
@@ -289,7 +281,6 @@ export default function ModuleTree({
                                                         key={groupMod.id}
                                                         moduleCode={groupMod.id}
                                                         isSelected={selectedMods.includes(groupMod.id)}
-                                                        isCompulsory={groupMod.compulsoryFor?.includes(selectedMajor)}
                                                         moduleTreeState={moduleTreeState}
                                                         compact
                                                         onToggle={() => onToggleModule(groupMod.id)}
@@ -306,7 +297,6 @@ export default function ModuleTree({
                                         <ModuleButton
                                             moduleCode={modInTree.id}
                                             isSelected={selectedMods.includes(modInTree.id)}
-                                            isCompulsory={isCompulsory}
                                             moduleTreeState={moduleTreeState}
                                             compact
                                             onToggle={() => onToggleModule(modInTree.id)}

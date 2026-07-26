@@ -145,35 +145,41 @@ export default function SelectionBasketButton({
     const renderSentimentRows = () => {
         if (!sentiment) return null;
 
-        const entries = [
-            ['Workload', sentiment.workload],
-            ['Difficulty', sentiment.difficulty],
-            ['Expected Grade', sentiment.expectedGrade],
-        ];
+        const workload = sentiment.workload;
+        const difficulty = sentiment.difficulty;
+        const expectedGrade = sentiment.expectedGrade;
 
-        return entries.map(([label, aspect]) => {
-            const isExpectedGrade = label === 'Expected Grade';
+        const renderCompactAspect = (label, aspect) => {
             const pct = Math.round(Math.max(0, Math.min(1, aspect.score)) * 100);
             const barColor = label === 'Workload' ? '#D85A30' : '#185FA5';
 
             return (
-                <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', fontWeight: '600', color: '#42413F' }}>
+                <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '1px', minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', fontWeight: '600', color: '#42413F', gap: '4px' }}>
                         <span>{label}</span>
-                        {isExpectedGrade ? (
-                            <span>{aspect.level}</span>
-                        ) : (
-                            <span>{pct}%</span>
-                        )}
+                        <span>{pct}%</span>
                     </div>
-                    {!isExpectedGrade ? (
-                        <div style={{ width: '100%', height: '6px', borderRadius: '999px', backgroundColor: '#E8E6E3', overflow: 'hidden' }}>
-                            <div style={{ width: `${pct}%`, height: '100%', backgroundColor: barColor }} />
-                        </div>
-                    ) : null}
+                    <div style={{ width: '100%', height: '6px', borderRadius: '999px', backgroundColor: '#E8E6E3', overflow: 'hidden' }}>
+                        <div style={{ width: `${pct}%`, height: '100%', backgroundColor: barColor }} />
+                    </div>
                 </div>
             );
-        });
+        };
+
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                    {renderCompactAspect('Workload', workload)}
+                    {renderCompactAspect('Difficulty', difficulty)}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', fontWeight: '600', color: '#42413F' }}>
+                        <span>Expected Grade</span>
+                        <span>{expectedGrade.level}</span>
+                    </div>
+                </div>
+            </div>
+        );
     };
 
 const linkState = moduleTreeState ? {
