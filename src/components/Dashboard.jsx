@@ -1,11 +1,12 @@
 import { UserAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { LuUser } from 'react-icons/lu';
 import "@fontsource/league-spartan/700.css";
 
 function Dashboard() {
     const { session, signOut } = UserAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     console.log(session);
 
     const handleSignOut = async (e) => {
@@ -20,7 +21,7 @@ function Dashboard() {
 
     const handleCardClick = (title) => {
         if (title === "AcadsPlanner") {
-            navigate("/moduleTree");
+            navigate("/moduleTree", { state: location.state?.moduleTreeState ?? undefined });
             return;
         }
 

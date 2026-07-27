@@ -1,14 +1,22 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
   buildDatabase,
   buildPersistedModTreeState,
+  clearTemporaryModTreeState,
   normalizeSavedModTreeState,
   normalizeSavedAcadsPlannerState,
   normalizePlannerModules,
+  readTemporaryModTreeState,
+  saveTemporaryModTreeState,
   rowToModule,
+  TEMP_MODTREE_STATE_STORAGE_KEY,
 } from '../ModuleTree.helpers';
 
 describe('ModuleTree helpers', () => {
+  beforeEach(() => {
+    window.sessionStorage.clear();
+  });
+
   it('normalizes persisted state and planner payloads', () => {
     const persisted = buildPersistedModTreeState({
       selectedMajor: '',
@@ -70,6 +78,33 @@ describe('ModuleTree helpers', () => {
     expect(normalizeSavedAcadsPlannerState({ plannerModules: { Y1S1: ['CS1231S'] } })).toMatchObject({
       Y1S1: ['cs1231s'],
     });
+  });
+
+  it('round-trips temporary ModTree state through session storage', () => {
+    saveTemporaryModTreeState({
+      selectedMajor: '  CS  ',
+      selectedMods: [' CS2100 '],
+      customModules: ['cs9999'],
+      plannerModules: { Y1S1: ['CS1231S'] },
+      scrollPosition: 320,
+    });
+
+    expect(window.sessionStorage.getItem(TEMP_MODTREE_STATE_STORAGE_KEY)).toContain('CS2100');
+    expect(readTemporaryModTreeState()).toMatchObject({
+      selectedMajor: '  CS  ',
+      selectedMods: ['cs2100'],
+      customModules: [
+        { moduleCode: 'cs9999', title: 'CS9999', hasModTreeMetadata: false, source: 'fallback' },
+      ],
+      plannerModules: {
+        Y1S1: ['cs1231s'],
+      },
+      scrollPosition: 320,
+    });
+
+    clearTemporaryModTreeState();
+    expect(window.sessionStorage.getItem(TEMP_MODTREE_STATE_STORAGE_KEY)).toBeNull();
+    expect(readTemporaryModTreeState()).toBeNull();
   });
 
   it('builds the module database and row shapes from nested rows', () => {
