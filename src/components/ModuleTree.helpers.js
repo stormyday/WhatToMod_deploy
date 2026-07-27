@@ -2,6 +2,60 @@ import { normalizeModuleCode } from './ModTree_components/modTreeModuleData';
 
 export const SEMESTER_LABELS = ['Y1S1', 'Y1S2', 'Y2S1', 'Y2S2', 'Y3S1', 'Y3S2', 'Y4S1', 'Y4S2'];
 export const PLANNER_COLUMN_LABELS = ['Precluded Modules', ...SEMESTER_LABELS];
+export const TEMP_MODTREE_STATE_STORAGE_KEY = 'whattomod.modtree.temporaryState';
+
+function getTemporaryStateStorage() {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+
+    try {
+        return window.sessionStorage;
+    } catch {
+        return null;
+    }
+}
+
+export function readTemporaryModTreeState() {
+    const storage = getTemporaryStateStorage();
+    if (!storage) {
+        return null;
+    }
+
+    const rawValue = storage.getItem(TEMP_MODTREE_STATE_STORAGE_KEY);
+    if (!rawValue) {
+        return null;
+    }
+
+    try {
+        return normalizeSavedModTreeState(JSON.parse(rawValue));
+    } catch {
+        return null;
+    }
+}
+
+export function saveTemporaryModTreeState(state) {
+    const storage = getTemporaryStateStorage();
+    if (!storage) {
+        return;
+    }
+
+    if (!state) {
+        storage.removeItem(TEMP_MODTREE_STATE_STORAGE_KEY);
+        return;
+    }
+
+    storage.setItem(TEMP_MODTREE_STATE_STORAGE_KEY, JSON.stringify(state));
+}
+
+export function clearTemporaryModTreeState() {
+    const storage = getTemporaryStateStorage();
+    if (!storage) {
+        return;
+    }
+
+    storage.removeItem(TEMP_MODTREE_STATE_STORAGE_KEY);
+}
 
 export function createEmptyPlannerModules(labels = PLANNER_COLUMN_LABELS) {
     return Object.fromEntries(labels.map((label) => [label, []]));

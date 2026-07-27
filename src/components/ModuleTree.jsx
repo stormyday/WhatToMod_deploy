@@ -12,8 +12,10 @@ import {
     normalizeCaseGRow,
     normalizeCustomModuleRecord,
     normalizePlannerModules,
+    readTemporaryModTreeState,
     normalizeSavedAcadsPlannerState,
     normalizeSavedModTreeState,
+    saveTemporaryModTreeState,
     rowToModule,
 } from './ModuleTree.helpers';
 import SelectMajor from './ModTree_components/ModTree_SelectMajor';
@@ -29,6 +31,17 @@ export default function ModuleTreePage() {
     const location = useLocation();
     const navigate = useNavigate();
     const { session } = UserAuth();
+    const initialTransientState = useMemo(() => {
+        const routeState = location.state?.moduleTreeState ?? location.state;
+        if (routeState && typeof routeState === 'object') {
+            const normalizedRouteState = normalizeSavedModTreeState(routeState);
+            if (normalizedRouteState) {
+                return normalizedRouteState;
+            }
+        }
+
+        return readTemporaryModTreeState();
+    }, [location.state]);
     const {
         query,
         setQuery,
@@ -39,13 +52,13 @@ export default function ModuleTreePage() {
     } = useModTreeModuleSearch();
  
     const [selectedMajor, setSelectedMajor] = useState(
-        location.state?.selectedMajor ?? 'Empty-Major'
+        initialTransientState?.selectedMajor ?? 'Empty-Major'
     );
     const [selectedMods, setSelectedMods] = useState(
-        (location.state?.selectedMods ?? []).map(normalizeModuleCode).filter(Boolean)
+        (initialTransientState?.selectedMods ?? []).map(normalizeModuleCode).filter(Boolean)
     );
     const [customModules, setCustomModules] = useState(
-        (location.state?.customModules ?? [])
+        (initialTransientState?.customModules ?? [])
             .map(normalizeCustomModuleRecord)
             .filter(Boolean)
     );
@@ -58,7 +71,10 @@ export default function ModuleTreePage() {
     const [plannerModules, setPlannerModules] = useState(() => createEmptyPlannerModules());
     const [savingProfile, setSavingProfile] = useState(false);
     const [saveStatus, setSaveStatus] = useState(null);
-    const [savedModtreeState, setSavedModtreeState] = useState(null);
+    const [savedModtreeState, setSavedModtreeState] = useState(() => initialTransientState);
+    const [hasTemporaryStateReady, setHasTemporaryStateReady] = useState(
+        Boolean(initialTransientState)
+    );
  
     // Fetch all modules from Supabase once on mount
     useEffect(() => {
@@ -98,7 +114,7 @@ export default function ModuleTreePage() {
  
     // Restore scroll / state when navigating back
     useEffect(() => {
-        const savedState = location.state?.moduleTreeState;
+        const savedState = initialTransientState;
         if (savedState) {
             const restoreFrame = window.requestAnimationFrame(() => {
                 setSelectedMajor(savedState.selectedMajor ?? 'Empty-Major');
@@ -117,13 +133,17 @@ export default function ModuleTreePage() {
 
             return () => window.cancelAnimationFrame(restoreFrame);
         }
-    }, [location.state]);
+    }, [initialTransientState]);
 
     useEffect(() => {
         const userId = session?.user?.id;
 
-        if (location.state?.moduleTreeState || !userId) {
-            return;
+        if (initialTransientState || !userId) {
+            const readyTimer = window.setTimeout(() => {
+                setHasTemporaryStateReady(true);
+            }, 0);
+
+            return () => window.clearTimeout(readyTimer);
         }
 
         let cancelled = false;
@@ -141,6 +161,7 @@ export default function ModuleTreePage() {
 
             if (error) {
                 console.error('Error loading saved ModTree state:', error);
+                setHasTemporaryStateReady(true);
                 return;
             }
 
@@ -158,6 +179,7 @@ export default function ModuleTreePage() {
             setPlannerModules(hasSavedPlannerState
                 ? restoredPlannerState
                 : restoredState?.plannerModules ?? createEmptyPlannerModules());
+            setHasTemporaryStateReady(true);
         };
 
         restoreProfileState();
@@ -165,7 +187,7 @@ export default function ModuleTreePage() {
         return () => {
             cancelled = true;
         };
-    }, [location.state, session?.user?.id]);
+    }, [initialTransientState, session?.user?.id]);
  
     const handleToggleModule = (modId) => {
         const moduleCode = normalizeModuleCode(modId);
@@ -364,6 +386,14 @@ export default function ModuleTreePage() {
         [selectedMajor, selectedMods, customModules, plannerModules]
     );
 
+    useEffect(() => {
+        if (!hasTemporaryStateReady) {
+            return;
+        }
+
+        saveTemporaryModTreeState(moduleTreeState);
+    }, [hasTemporaryStateReady, moduleTreeState]);
+
     const filteredModules = useMemo(() =>
         allModules.filter(mod => mod.majors && mod.majors.includes(selectedMajor)),
         [allModules, selectedMajor]
@@ -425,12 +455,12 @@ export default function ModuleTreePage() {
                 <h1
                     className="cursor-pointer text-[#F76F44]"
                     style={{ fontFamily: "League Spartan", fontWeight: 700 }}
-                    onClick={() => navigate("/dashboard")}
+                    onClick={() => navigate("/dashboard", { state: { moduleTreeState } })}
                 >
                     What<span style={{ color: "#2564F8" }}>To</span>Mod
                 </h1>
                 <button
-                    onClick={() => navigate('/dashboard')}
+                    onClick={() => navigate('/dashboard', { state: { moduleTreeState } })}
                     className="text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl px-4 py-3 transition"
                 >
                     ← Back
