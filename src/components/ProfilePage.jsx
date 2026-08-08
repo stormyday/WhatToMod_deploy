@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
 import Select from 'react-select';
-import AsyncSelect from 'react-select/async';
 import { useNavigate } from "react-router-dom";
 import { supabase } from '../supabaseClient';
 import {
   GRADE_VALUES,
-  catalogueOption,
   loadUserModuleRecords,
   replaceUserModuleRecords,
 } from '../utils/userModuleRecords';
-import { useModuleCatalogSearch } from '../hooks/useModuleCatalogSearch';
+import { fetchModuleList } from '../utils/api';
 import { LuUser } from 'react-icons/lu';
 import "@fontsource/league-spartan/700.css";
 
@@ -56,9 +54,10 @@ export default function ProfilePage() {
 
   const [profile, setProfile] = useState({ major: '', second_major: '', minor: '' });
   const [grades, setGrades] = useState([]);
+  const [moduleOptions, setModuleOptions] = useState([]);
+  const [modulesLoading, setModulesLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
-  const { initialOptions, modulesLoading, loadModuleOptions } = useModuleCatalogSearch();
 
   // Course option lists fetched from Supabase
   const [majorOptions, setMajorOptions] = useState([]);
@@ -91,6 +90,18 @@ export default function ProfilePage() {
     }
 
     fetchCourses();
+  }, []);
+
+  // Keep the module picker aligned with the NUSMods list used by the original UI.
+  useEffect(() => {
+    fetchModuleList()
+      .then((modules) => setModuleOptions(modules.map((module) => ({
+        value: module.moduleCode,
+        label: `${module.moduleCode} - ${module.title}`,
+        title: module.title,
+      }))))
+      .catch((error) => console.error('Error loading NUSMods module list:', error))
+      .finally(() => setModulesLoading(false));
   }, []);
 
   // Load existing profile from Supabase
@@ -137,12 +148,12 @@ export default function ProfilePage() {
     setGrades(next);
   };
 
-  const handleGradeModuleSelect = (index, option) => {
+  const handleGradeModuleSelect = (index, selected) => {
     const next = [...grades];
     next[index] = {
       ...next[index],
-      moduleCode: option?.value || '',
-      title: option?.title || '',
+      moduleCode: selected?.value || '',
+      title: selected?.title || '',
     };
     setGrades(next);
   };
@@ -277,22 +288,15 @@ export default function ProfilePage() {
             {grades.map((item, index) => (
               <div key={index} className="flex items-center gap-3">
                 <div className="flex-1">
-                  <AsyncSelect
-                    cacheOptions
-                    defaultOptions={initialOptions}
-                    loadOptions={loadModuleOptions}
+                  <Select
+                    options={moduleOptions}
                     styles={selectStyles}
                     isLoading={modulesLoading}
                     placeholder="Select module..."
-                    noOptionsMessage={({ inputValue }) => inputValue.trim().length < 2
-                      ? 'Type at least 2 characters to search'
-                      : 'No matching modules'}
                     value={
                       item.moduleCode
-                        ? catalogueOption({
-                          module_code: item.moduleCode,
-                          title: item.title,
-                        })
+                        ? moduleOptions.find((option) => option.value === item.moduleCode)
+                          || { value: item.moduleCode, label: item.title ? `${item.moduleCode} - ${item.title}` : item.moduleCode }
                         : null
                     }
                     onChange={(selected) => handleGradeModuleSelect(index, selected)}

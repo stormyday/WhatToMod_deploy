@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import Select from 'react-select';
-import AsyncSelect from 'react-select/async';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import {
   GRADE_VALUES,
-  catalogueOption,
   loadUserModuleRecords,
   replaceUserModuleRecords,
 } from '../utils/userModuleRecords';
-import { useModuleCatalogSearch } from '../hooks/useModuleCatalogSearch';
+import { fetchModuleDetail, fetchModuleList } from '../utils/api';
 import { LuCalculator, LuTrash2 } from 'react-icons/lu';
 import "@fontsource/league-spartan/700.css";
 
@@ -51,10 +49,22 @@ export default function GpaCalculator() {
   const navigate = useNavigate();
 
   const [rows, setRows] = useState([]);
+  const [moduleOptions, setModuleOptions] = useState([]);
+  const [modulesLoading, setModulesLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { initialOptions, modulesLoading, loadModuleOptions } = useModuleCatalogSearch();
+
+  useEffect(() => {
+    fetchModuleList()
+      .then((modules) => setModuleOptions(modules.map((module) => ({
+        value: module.moduleCode,
+        label: `${module.moduleCode} - ${module.title}`,
+        title: module.title,
+      }))))
+      .catch((error) => console.error('Error loading NUSMods module list:', error))
+      .finally(() => setModulesLoading(false));
+  }, []);
 
   // Load saved grades
   useEffect(() => {
@@ -88,15 +98,31 @@ export default function GpaCalculator() {
     setRows(next);
   };
 
-  const handleModuleSelect = (index, option) => {
+  const handleModuleSelect = async (index, selected) => {
+    const moduleCode = selected?.value || '';
     const next = [...rows];
     next[index] = {
       ...next[index],
-      moduleCode: option?.value || '',
-      title: option?.title || '',
-      moduleCredit: option?.moduleCredit ?? null,
+      moduleCode,
+      title: selected?.title || '',
+      moduleCredit: null,
     };
     setRows(next);
+
+    if (!moduleCode) return;
+
+    try {
+      const detail = await fetchModuleDetail(moduleCode);
+      const moduleCredit = Number(detail.moduleCredit);
+      if (!Number.isFinite(moduleCredit)) return;
+      setRows((current) => current.map((row, rowIndex) => (
+        rowIndex === index && row.moduleCode === moduleCode
+          ? { ...row, moduleCredit }
+          : row
+      )));
+    } catch (error) {
+      console.error(`Error loading module credits for ${moduleCode}:`, error);
+    }
   };
 
   const { cap, countedMcs, suMcs } = useMemo(() => {
@@ -221,23 +247,15 @@ export default function GpaCalculator() {
           <div className="space-y-3">
             {rows.map((row, index) => (
               <div key={index} className="grid grid-cols-[1fr_5rem_6.5rem_3.5rem_2rem] gap-3 items-center">
-                <AsyncSelect
-                  cacheOptions
-                  defaultOptions={initialOptions}
-                  loadOptions={loadModuleOptions}
+                <Select
+                  options={moduleOptions}
                   styles={selectStyles}
                   isLoading={modulesLoading}
                   placeholder="Select module..."
-                  noOptionsMessage={({ inputValue }) => inputValue.trim().length < 2
-                    ? 'Type at least 2 characters to search'
-                    : 'No matching modules'}
                   value={
                     row.moduleCode
-                      ? catalogueOption({
-                        module_code: row.moduleCode,
-                        title: row.title,
-                        module_credit: row.moduleCredit,
-                      })
+                      ? moduleOptions.find((option) => option.value === row.moduleCode)
+                        || { value: row.moduleCode, label: row.title ? `${row.moduleCode} - ${row.title}` : row.moduleCode }
                       : null
                   }
                   onChange={(selected) => handleModuleSelect(index, selected)}
