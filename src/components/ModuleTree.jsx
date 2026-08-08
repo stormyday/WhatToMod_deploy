@@ -25,6 +25,7 @@ import SelectedBasket from './ModTree_components/ModTree_SelectionBasket';
 import AcadsPlanner from './AcadsPlanner/ModTree_AcadsPlanner';
 import { ModTreeSearchBar } from './ModTree_components/ModTree_SearchBar';
 import { useModTreeModuleSearch } from '../hooks/useModTreeModuleSearch';
+import { addBlankModuleRecords } from '../utils/userModuleRecords';
 import "@fontsource/league-spartan/700.css";
  
 export default function ModuleTreePage() {
@@ -320,22 +321,6 @@ export default function ModuleTreePage() {
             return;
         }
 
-        const { data: existingProfile, error: fetchError } = await supabase
-            .from('profiles')
-            .select('past_grades')
-            .eq('id', user.id)
-            .maybeSingle();
-
-        if (fetchError) {
-            console.error('Error loading existing profile modules:', fetchError);
-            setSavingProfile(false);
-            setSaveStatus('error');
-            return;
-        }
-
-        const existingPastGrades = Array.isArray(existingProfile?.past_grades)
-            ? existingProfile.past_grades
-            : [];
         const nextModtreeState = buildPersistedModTreeState({
             selectedMajor,
             selectedMods,
@@ -343,30 +328,20 @@ export default function ModuleTreePage() {
             plannerModules,
             previousState: savedModtreeState ?? {},
         });
-        const gradesByModuleCode = new Map(
-            existingPastGrades
-                .filter((entry) => entry && typeof entry === 'object' && typeof entry.moduleCode === 'string')
-                .map((entry) => [entry.moduleCode, entry])
-        );
-
-        selectedMods.forEach((moduleCode) => {
-            const normalizedCode = typeof moduleCode === 'string' ? moduleCode.trim().toUpperCase() : '';
-            if (!normalizedCode || gradesByModuleCode.has(normalizedCode)) {
-                return;
-            }
-
-            gradesByModuleCode.set(normalizedCode, {
-                moduleCode: normalizedCode,
-                grade: '',
-            });
-        });
-
-        const nextPastGrades = Array.from(gradesByModuleCode.values());
         const nextAcadsPlannerState = normalizeSavedAcadsPlannerState({ plannerModules });
+
+        let savedRecords;
+        try {
+            savedRecords = await addBlankModuleRecords(user.id, selectedMods);
+        } catch (recordError) {
+            console.error('Error saving selected modules:', recordError);
+            setSavingProfile(false);
+            setSaveStatus('error');
+            return;
+        }
 
         const { error: saveError } = await supabase.from('profiles').upsert({
             id: user.id,
-            past_grades: nextPastGrades,
             modtree_state: nextModtreeState,
             acads_planner_state: nextAcadsPlannerState,
         });
@@ -378,7 +353,7 @@ export default function ModuleTreePage() {
         }
 
         setSavingProfile(false);
-        setSaveStatus(saveError ? 'error' : 'success');
+        setSaveStatus(saveError ? 'error' : savedRecords.skippedCodes.length > 0 ? 'partial' : 'success');
     };
 
     const moduleTreeState = useMemo(
@@ -520,6 +495,11 @@ export default function ModuleTreePage() {
                                 Saved selected modules and Acads Planner state to your profile.
                             </div>
                         )}
+                        {saveStatus === 'partial' && (
+                            <div style={{ color: '#92400e', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px', padding: '10px 14px', fontSize: '13px', fontWeight: '600' }}>
+                                Saved NUS module selections and planner state. Requirement placeholders were kept in ModTree but not added as taken modules.
+                            </div>
+                        )}
                         {saveStatus === 'error' && (
                             <div style={{ color: '#b91c1c', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', padding: '10px 14px', fontSize: '13px', fontWeight: '600' }}>
                                 Could not save selected modules and Acads Planner state. Please try again.
@@ -541,7 +521,7 @@ export default function ModuleTreePage() {
                                 boxShadow: '0 4px 12px rgba(233, 84, 32, 0.18)',
                             }}
                         >
-                            {savingProfile ? 'Saving...' : 'Save modules and planner state to profile'}
+                            {savingProfile ? 'Saving...' : 'Save'}
                         </button>
                     </div>
 

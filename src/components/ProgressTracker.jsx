@@ -7,33 +7,8 @@ import ModuleTree from './ModTree_components/ModTree_ModTree';
 import ModuleButton from './ModTree_components/ModTree_ModButton';
 import ModTreeProgressBar from './ModTree_components/ModTree_ProgressBar';
 import { analyzeLevel4000Pathway } from './ModTree_components/ModTree_MultiLayerButtonLogic';
+import { loadUserModuleRecords } from '../utils/userModuleRecords';
 import "@fontsource/league-spartan/700.css";
-
-function collectNestedModules(node, db) {
-    if (!node || typeof node !== 'object') {
-        return;
-    }
-
-    if (typeof node.id === 'string' && node.id && !db[node.id]) {
-        db[node.id] = node;
-    }
-
-    if (Array.isArray(node.children)) {
-        node.children.forEach((child) => collectNestedModules(child, db));
-    }
-
-    if (Array.isArray(node.options)) {
-        node.options.forEach((option) => collectNestedModules(option, db));
-    }
-
-    if (Array.isArray(node.RequirementsPillar)) {
-        node.RequirementsPillar.forEach((pillar) => {
-            if (pillar && typeof pillar === 'object' && Array.isArray(pillar.options)) {
-                pillar.options.forEach((option) => collectNestedModules(option, db));
-            }
-        });
-    }
-}
 
 function isCaseGRow(row) {
     return typeof row?.id === 'string'
@@ -183,17 +158,21 @@ function normalizeSavedModTreeState(savedState) {
                 })
                 .filter(Boolean)
                 .sort((a, b) => a.order - b.order)
-                .map(({ order, ...section }) => section)
+                .map((section) => ({
+                    id: section.id,
+                    title: section.title,
+                    moduleCodes: section.moduleCodes,
+                }))
             : null,
     };
 }
 
-function getTakenModuleCodes(grades) {
-    const gradeCodes = Array.isArray(grades)
-        ? grades.map((row) => normalizeModuleCode(row?.moduleCode)).filter(Boolean)
+function getTakenModuleCodes(records) {
+    const recordCodes = Array.isArray(records)
+        ? records.map((row) => normalizeModuleCode(row?.moduleCode ?? row?.module_code)).filter(Boolean)
         : [];
 
-    return [...new Set(gradeCodes)].sort((a, b) => a.localeCompare(b));
+    return [...new Set(recordCodes)].sort((a, b) => a.localeCompare(b));
 }
 
 function createSectionId() {
@@ -233,7 +212,11 @@ function normalizeTakenSections(savedSections, selectedMajor, fallbackModuleCode
             order: Number.isInteger(section?.order) ? section.order : index,
         }))
         .sort((a, b) => a.order - b.order)
-        .map(({ order, ...section }) => section);
+        .map((section) => ({
+            id: section.id,
+            title: section.title,
+            moduleCodes: section.moduleCodes,
+        }));
 
         return normalized;
     }
@@ -271,14 +254,22 @@ export default function ProgressTracker() {
             const profilePromise = userId
                 ? supabase
                     .from('profiles')
-                    .select('major,past_grades,modtree_state')
+                    .select('major,modtree_state')
                     .eq('id', userId)
                     .maybeSingle()
                 : Promise.resolve({ data: null, error: null });
 
-            const [{ data: moduleRows, error: moduleError }, profileResult] = await Promise.all([
+            const recordsPromise = userId
+                ? loadUserModuleRecords(userId).catch((recordError) => {
+                    console.error('Error loading taken modules:', recordError);
+                    return [];
+                })
+                : Promise.resolve([]);
+
+            const [{ data: moduleRows, error: moduleError }, profileResult, userModuleRecords] = await Promise.all([
                 modulesPromise,
                 profilePromise,
+                recordsPromise,
             ]);
 
             if (cancelled) {
@@ -304,8 +295,7 @@ export default function ProgressTracker() {
             const restoredState = normalizeSavedModTreeState(profileResult?.data?.modtree_state);
             const rawSavedState = profileResult?.data?.modtree_state ?? {};
             const profileMajor = profileResult?.data?.major ?? 'Empty-Major';
-            const profileGrades = Array.isArray(profileResult?.data?.past_grades) ? profileResult.data.past_grades : [];
-            const profileTakenCodes = getTakenModuleCodes(profileGrades);
+            const profileTakenCodes = getTakenModuleCodes(userModuleRecords);
 
             setAllModules(modules);
             setSelectedMajor(restoredState?.selectedMajor ?? profileMajor);

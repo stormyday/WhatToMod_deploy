@@ -1,13 +1,19 @@
 import { useState, useEffect } from 'react';
 import Select from 'react-select';
+import AsyncSelect from 'react-select/async';
 import { useNavigate } from "react-router-dom";
 import { supabase } from '../supabaseClient';
+import {
+  GRADE_VALUES,
+  catalogueOption,
+  loadUserModuleRecords,
+  replaceUserModuleRecords,
+} from '../utils/userModuleRecords';
+import { useModuleCatalogSearch } from '../hooks/useModuleCatalogSearch';
 import { LuUser } from 'react-icons/lu';
 import "@fontsource/league-spartan/700.css";
 
-const GRADES = [
-  "A+", "A", "A-", "B+", "B", "B-", "C+", "C", "D+", "D", "F",
-].map(g => ({ value: g, label: g }));
+const GRADES = GRADE_VALUES.map(g => ({ value: g, label: g }));
 
 const selectStyles = {
   control: (base, state) => ({
@@ -50,10 +56,9 @@ export default function ProfilePage() {
 
   const [profile, setProfile] = useState({ major: '', second_major: '', minor: '' });
   const [grades, setGrades] = useState([]);
-  const [moduleOptions, setModuleOptions] = useState([]);
-  const [modulesLoading, setModulesLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
+  const { initialOptions, modulesLoading, loadModuleOptions } = useModuleCatalogSearch();
 
   // Course option lists fetched from Supabase
   const [majorOptions, setMajorOptions] = useState([]);
@@ -88,50 +93,57 @@ export default function ProfilePage() {
     fetchCourses();
   }, []);
 
-  // Fetch NUSMods module list for the Past Grades picker
-  useEffect(() => {
-    fetch('https://api.nusmods.com/v2/2025-2026/moduleList.json')
-      .then(res => res.json())
-      .then(data => {
-        const options = data.map(mod => ({
-          value: mod.moduleCode,
-          label: `${mod.moduleCode} - ${mod.title}`,
-        }));
-        setModuleOptions(options);
-      })
-      .finally(() => setModulesLoading(false));
-  }, []);
-
   // Load existing profile from Supabase
   useEffect(() => {
     const fetchProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
+      try {
+        const [{ data, error }, records] = await Promise.all([
+          supabase
+            .from('profiles')
+            .select('major,second_major,minor')
+            .eq('id', user.id)
+            .maybeSingle(),
+          loadUserModuleRecords(user.id),
+        ]);
 
-      if (data) {
-        setProfile({
-          major: data.major || '',
-          second_major: data.second_major || '',
-          minor: data.minor || '',
-        });
-        setGrades(data.past_grades || []);
+        if (error) console.error('Error loading profile:', error);
+
+        if (data) {
+          setProfile({
+            major: data.major || '',
+            second_major: data.second_major || '',
+            minor: data.minor || '',
+          });
+        }
+        setGrades(records);
+      } catch (error) {
+        console.error('Error loading user module records:', error);
       }
     };
 
     fetchProfile();
   }, []);
 
-  const addGradeRow = () => setGrades([...grades, { moduleCode: '', grade: '' }]);
+  const addGradeRow = () => setGrades([...grades, { moduleCode: '', grade: null, isSu: false }]);
   const removeGradeRow = (index) => setGrades(grades.filter((_, i) => i !== index));
   const updateGradeRow = (index, key, value) => {
     const next = [...grades];
-    next[index] = { ...next[index], [key]: value };
+    next[index] = key === 'isSu' && value
+      ? { ...next[index], isSu: true, grade: null }
+      : { ...next[index], [key]: value };
+    setGrades(next);
+  };
+
+  const handleGradeModuleSelect = (index, option) => {
+    const next = [...grades];
+    next[index] = {
+      ...next[index],
+      moduleCode: option?.value || '',
+      title: option?.title || '',
+    };
     setGrades(next);
   };
 
@@ -146,14 +158,19 @@ export default function ProfilePage() {
       return;
     }
 
-    const { error } = await supabase.from('profiles').upsert({
-      id: user.id,
-      ...profile,
-      past_grades: grades,
-    });
+    const { error } = await supabase.from('profiles').upsert({ id: user.id, ...profile });
 
     if (error) {
       console.error("Supabase Save Error:", error);
+    }
+
+    try {
+      if (!error) await replaceUserModuleRecords(user.id, grades);
+    } catch (recordError) {
+      console.error('User module record save error:', recordError);
+      setSaving(false);
+      setSaveStatus('validation');
+      return;
     }
 
     setSaving(false);
@@ -260,17 +277,25 @@ export default function ProfilePage() {
             {grades.map((item, index) => (
               <div key={index} className="flex items-center gap-3">
                 <div className="flex-1">
-                  <Select
-                    options={moduleOptions}
+                  <AsyncSelect
+                    cacheOptions
+                    defaultOptions={initialOptions}
+                    loadOptions={loadModuleOptions}
                     styles={selectStyles}
                     isLoading={modulesLoading}
                     placeholder="Select module..."
+                    noOptionsMessage={({ inputValue }) => inputValue.trim().length < 2
+                      ? 'Type at least 2 characters to search'
+                      : 'No matching modules'}
                     value={
                       item.moduleCode
-                        ? moduleOptions.find(o => o.value === item.moduleCode) || { value: item.moduleCode, label: item.moduleCode }
+                        ? catalogueOption({
+                          module_code: item.moduleCode,
+                          title: item.title,
+                        })
                         : null
                     }
-                    onChange={(selected) => updateGradeRow(index, 'moduleCode', selected?.value || '')}
+                    onChange={(selected) => handleGradeModuleSelect(index, selected)}
                   />
                 </div>
                 <div className="w-28 shrink-0">
@@ -278,10 +303,20 @@ export default function ProfilePage() {
                     options={GRADES}
                     styles={selectStyles}
                     placeholder="Grade"
+                    isDisabled={item.isSu}
                     value={item.grade ? { value: item.grade, label: item.grade } : null}
                     onChange={(selected) => updateGradeRow(index, 'grade', selected?.value || '')}
                   />
                 </div>
+                <label className="flex items-center gap-1.5 text-xs font-bold text-gray-600 shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(item.isSu)}
+                    onChange={(event) => updateGradeRow(index, 'isSu', event.target.checked)}
+                    className="h-4 w-4 rounded accent-[#2564F8]"
+                  />
+                  S/U
+                </label>
                 <button
                   onClick={() => removeGradeRow(index)}
                   className="text-gray-400 hover:text-red-500 transition px-2 text-lg shrink-0"
@@ -303,6 +338,11 @@ export default function ProfilePage() {
         {saveStatus === 'error' && (
           <div className="text-sm font-semibold text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4 transition animate-fade-in">
             Something went wrong while saving. Please try again.
+          </div>
+        )}
+        {saveStatus === 'validation' && (
+          <div className="text-sm font-semibold text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4 transition animate-fade-in">
+            Check that every row has a unique module before saving.
           </div>
         )}
 
