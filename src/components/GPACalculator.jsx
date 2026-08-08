@@ -1,8 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import Select from 'react-select';
+import AsyncSelect from 'react-select/async';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { fetchModuleList, fetchModuleDetail } from '../utils/api';
+import {
+  GRADE_VALUES,
+  catalogueOption,
+  loadUserModuleRecords,
+  replaceUserModuleRecords,
+} from '../utils/userModuleRecords';
+import { useModuleCatalogSearch } from '../hooks/useModuleCatalogSearch';
 import { LuCalculator, LuTrash2 } from 'react-icons/lu';
 import "@fontsource/league-spartan/700.css";
 
@@ -14,7 +21,7 @@ const GRADE_POINTS = {
   "F": 0.0,
 };
 
-const GRADES = Object.keys(GRADE_POINTS).map(g => ({ value: g, label: g }));
+const GRADES = GRADE_VALUES.map(g => ({ value: g, label: g }));
 
 const selectStyles = {
   control: (base, state) => ({
@@ -40,37 +47,14 @@ const selectStyles = {
   indicatorSeparator: () => ({ display: 'none' }),
 };
 
-function normaliseRow(row) {
-  return {
-    moduleCode: row.moduleCode || '',
-    grade: row.grade || '',
-    mc: row.mc ?? '',
-    su: row.su ?? false,
-  };
-}
-
 export default function GpaCalculator() {
   const navigate = useNavigate();
 
   const [rows, setRows] = useState([]);
-  const [moduleOptions, setModuleOptions] = useState([]);
-  const [modulesLoading, setModulesLoading] = useState(true);
-  const [resolvingMcs, setResolvingMcs] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchModuleList()
-      .then(data => {
-        setModuleOptions(data.map(mod => ({
-          value: mod.moduleCode,
-          label: `${mod.moduleCode} - ${mod.title}`,
-        })));
-      })
-      .catch(err => console.error('Error fetching module list:', err))
-      .finally(() => setModulesLoading(false));
-  }, []);
+  const { initialOptions, modulesLoading, loadModuleOptions } = useModuleCatalogSearch();
 
   // Load saved grades
   useEffect(() => {
@@ -80,14 +64,13 @@ export default function GpaCalculator() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { if (!cancelled) setLoading(false); return; }
 
-      const { data } = await supabase
-        .from('profiles')
-        .select('past_grades')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (cancelled) return;
-      setRows((data?.past_grades || []).map(normaliseRow));
+      try {
+        const records = await loadUserModuleRecords(user.id);
+        if (cancelled) return;
+        setRows(records);
+      } catch (error) {
+        console.error('Error loading module records:', error);
+      }
       setLoading(false);
     };
 
@@ -95,75 +78,34 @@ export default function GpaCalculator() {
     return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    if (loading) return;
-
-    const missing = rows
-      .map((r, i) => ({ ...r, i }))
-      .filter(r => r.moduleCode && !r.mc);
-
-    if (missing.length === 0) return;
-
-    let cancelled = false;
-
-    const resolve = async () => {
-      setResolvingMcs(true);
-      const results = await Promise.all(
-        missing.map(async ({ moduleCode, i }) => {
-          try {
-            const detail = await fetchModuleDetail(moduleCode);
-            return { i, mc: detail.moduleCredit };
-          } catch {
-            return null;
-          }
-        })
-      );
-      if (cancelled) return;
-      setRows(prev => {
-        const next = [...prev];
-        results.forEach(r => {
-          if (r && next[r.i] && !next[r.i].mc) next[r.i] = { ...next[r.i], mc: String(r.mc) };
-        });
-        return next;
-      });
-      setResolvingMcs(false);
-    };
-    resolve();
-
-    return () => { cancelled = true; };
-  }, [loading]);
-
-  const addRow = () => setRows([...rows, { moduleCode: '', grade: '', mc: '', su: false }]);
+  const addRow = () => setRows([...rows, { moduleCode: '', grade: null, moduleCredit: null, isSu: false }]);
   const removeRow = (index) => setRows(rows.filter((_, i) => i !== index));
   const updateRow = (index, key, value) => {
     const next = [...rows];
-    next[index] = { ...next[index], [key]: value };
+    next[index] = key === 'isSu' && value
+      ? { ...next[index], isSu: true, grade: null }
+      : { ...next[index], [key]: value };
     setRows(next);
   };
 
-  const handleModuleSelect = async (index, moduleCode) => {
-    updateRow(index, 'moduleCode', moduleCode);
-    if (!moduleCode) return;
-
-    try {
-      const detail = await fetchModuleDetail(moduleCode);
-      setRows(prev => {
-        const next = [...prev];
-        const row = next[index];
-        if (!row || row.moduleCode !== moduleCode || row.mc) return prev;
-        next[index] = { ...row, mc: String(detail.moduleCredit) };
-        return next;
-      });
-    } catch {
-    }
+  const handleModuleSelect = (index, option) => {
+    const next = [...rows];
+    next[index] = {
+      ...next[index],
+      moduleCode: option?.value || '',
+      title: option?.title || '',
+      moduleCredit: option?.moduleCredit ?? null,
+    };
+    setRows(next);
   };
 
   const { cap, countedMcs, suMcs } = useMemo(() => {
     let points = 0, mcs = 0, suMcTotal = 0;
     for (const row of rows) {
-      const mc = parseFloat(row.mc);
-      if (!row.grade || !Number.isFinite(mc) || mc <= 0) continue;
-      if (row.su) { suMcTotal += mc; continue; }
+      const mc = Number(row.moduleCredit);
+      if (!Number.isFinite(mc) || mc <= 0) continue;
+      if (row.isSu) { suMcTotal += mc; continue; }
+      if (!row.grade) continue;
       const gp = GRADE_POINTS[row.grade];
       if (gp === undefined) continue;
       points += gp * mc;
@@ -187,15 +129,15 @@ export default function GpaCalculator() {
       return;
     }
 
-    const { error } = await supabase.from('profiles').upsert({
-      id: user.id,
-      past_grades: rows,
-    });
-
-    if (error) console.error('Supabase Save Error:', error);
-
-    setSaving(false);
-    setSaveStatus(error ? 'error' : 'success');
+    try {
+      await replaceUserModuleRecords(user.id, rows);
+      setSaveStatus('success');
+    } catch (error) {
+      console.error('Supabase Save Error:', error);
+      setSaveStatus(error instanceof Error ? 'validation' : 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -279,41 +221,43 @@ export default function GpaCalculator() {
           <div className="space-y-3">
             {rows.map((row, index) => (
               <div key={index} className="grid grid-cols-[1fr_5rem_6.5rem_3.5rem_2rem] gap-3 items-center">
-                <Select
-                  options={moduleOptions}
+                <AsyncSelect
+                  cacheOptions
+                  defaultOptions={initialOptions}
+                  loadOptions={loadModuleOptions}
                   styles={selectStyles}
                   isLoading={modulesLoading}
                   placeholder="Select module..."
+                  noOptionsMessage={({ inputValue }) => inputValue.trim().length < 2
+                    ? 'Type at least 2 characters to search'
+                    : 'No matching modules'}
                   value={
                     row.moduleCode
-                      ? moduleOptions.find(o => o.value === row.moduleCode) || { value: row.moduleCode, label: row.moduleCode }
+                      ? catalogueOption({
+                        module_code: row.moduleCode,
+                        title: row.title,
+                        module_credit: row.moduleCredit,
+                      })
                       : null
                   }
-                  onChange={(selected) => handleModuleSelect(index, selected?.value || '')}
+                  onChange={(selected) => handleModuleSelect(index, selected)}
                 />
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={row.mc}
-                  default = "4"
-                  onChange={(e) => updateRow(index, 'mc', e.target.value)}
-                  placeholder={resolvingMcs && !row.mc ? "…" : "MCs"}
-                  className="w-full h-[48px] rounded-xl border border-gray-300 bg-gray-50 px-3 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#1D63ED33] focus:border-[#1D63ED]"
-                />
+                <div className="w-full h-[48px] rounded-xl border border-gray-300 bg-gray-100 px-3 text-sm text-center flex items-center justify-center text-gray-600" title="Credits come from the NUS module catalogue">
+                  {row.moduleCredit ?? '—'}
+                </div>
                 <Select
                   options={GRADES}
                   styles={selectStyles}
                   placeholder="Grade"
-                  isDisabled={!!row.su}
+                  isDisabled={!!row.isSu}
                   value={row.grade ? { value: row.grade, label: row.grade } : null}
                   onChange={(selected) => updateRow(index, 'grade', selected?.value || '')}
                 />
                 <div className="flex justify-center">
                   <input
                     type="checkbox"
-                    checked={!!row.su}
-                    onChange={(e) => updateRow(index, 'su', e.target.checked)}
+                    checked={!!row.isSu}
+                    onChange={(e) => updateRow(index, 'isSu', e.target.checked)}
                     title="Mark as S/U (excluded from GPA)"
                     className="h-5 w-5 rounded accent-[#2564F8] cursor-pointer"
                   />
@@ -339,6 +283,11 @@ export default function GpaCalculator() {
         {saveStatus === 'error' && (
           <div className="text-sm font-semibold text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4 transition animate-fade-in">
             Something went wrong, please try again.
+          </div>
+        )}
+        {saveStatus === 'validation' && (
+          <div className="text-sm font-semibold text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4 transition animate-fade-in">
+            Check that every row has a unique module before saving.
           </div>
         )}
 
