@@ -4,11 +4,15 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import {
   GRADE_VALUES,
+  SEMESTERS,
+  SEMESTER_OPTIONS,
+  fetchModuleCredits,
   loadUserModuleRecords,
   replaceUserModuleRecords,
 } from '../utils/userModuleRecords';
 import { fetchModuleDetail, fetchModuleList } from '../utils/api';
 import { LuCalculator, LuTrash2 } from 'react-icons/lu';
+import GPATrendChart from './GPATrendChart';
 import "@fontsource/league-spartan/700.css";
 
 const GRADE_POINTS = {
@@ -77,7 +81,10 @@ export default function GpaCalculator() {
       try {
         const records = await loadUserModuleRecords(user.id);
         if (cancelled) return;
-        setRows(records);
+        setRows(records.map((record) => ({
+          ...record,
+          creditUnresolved: Boolean(record.moduleCode) && record.moduleCredit === null,
+        })));
       } catch (error) {
         console.error('Error loading module records:', error);
       }
@@ -88,7 +95,7 @@ export default function GpaCalculator() {
     return () => { cancelled = true; };
   }, []);
 
-  const addRow = () => setRows([...rows, { moduleCode: '', grade: null, moduleCredit: null, isSu: false }]);
+  const addRow = () => setRows([...rows, { moduleCode: '', grade: null, moduleCredit: null, isSu: false, semesterTaken: null, creditUnresolved: false }]);
   const removeRow = (index) => setRows(rows.filter((_, i) => i !== index));
   const updateRow = (index, key, value) => {
     const next = [...rows];
@@ -106,23 +113,43 @@ export default function GpaCalculator() {
       moduleCode,
       title: selected?.title || '',
       moduleCredit: null,
+      creditUnresolved: false,
     };
     setRows(next);
 
     if (!moduleCode) return;
 
-    try {
-      const detail = await fetchModuleDetail(moduleCode);
-      const moduleCredit = Number(detail.moduleCredit);
-      if (!Number.isFinite(moduleCredit)) return;
+    const applyCredit = (moduleCredit, creditUnresolved = false) => {
       setRows((current) => current.map((row, rowIndex) => (
         rowIndex === index && row.moduleCode === moduleCode
-          ? { ...row, moduleCredit }
+          ? { ...row, moduleCredit, creditUnresolved }
           : row
       )));
+    };
+
+    try {
+      const credits = await fetchModuleCredits([moduleCode]);
+      const fromCatalog = Number(credits.get(moduleCode)?.module_credit);
+      if (Number.isFinite(fromCatalog)) {
+        applyCredit(fromCatalog);
+        return;
+      }
     } catch (error) {
-      console.error(`Error loading module credits for ${moduleCode}:`, error);
+      console.error(`Error looking up module credit for ${moduleCode}:`, error);
     }
+
+    try {
+      const detail = await fetchModuleDetail(moduleCode);
+      const fromNusmods = Number(detail.moduleCredit);
+      if (Number.isFinite(fromNusmods)) {
+        applyCredit(fromNusmods);
+        return;
+      }
+    } catch (error) {
+      console.error(`Error fetching module credits for ${moduleCode} from NUSMods:`, error);
+    }
+
+    applyCredit(null, true);
   };
 
   const { cap, countedMcs, suMcs } = useMemo(() => {
@@ -142,6 +169,33 @@ export default function GpaCalculator() {
       countedMcs: mcs,
       suMcs: suMcTotal,
     };
+  }, [rows]);
+
+  const gpaTrend = useMemo(() => {
+    const bySemester = new Map();
+    for (const row of rows) {
+      if (!row.semesterTaken || row.isSu || !row.grade) continue;
+      const mc = Number(row.moduleCredit);
+      if (!Number.isFinite(mc) || mc <= 0) continue;
+      const gp = GRADE_POINTS[row.grade];
+      if (gp === undefined) continue;
+
+      const bucket = bySemester.get(row.semesterTaken) ?? { points: 0, mcs: 0 };
+      bucket.points += gp * mc;
+      bucket.mcs += mc;
+      bySemester.set(row.semesterTaken, bucket);
+    }
+
+    let cumPoints = 0, cumMcs = 0;
+    const trend = [];
+    for (const semester of SEMESTERS) {
+      const bucket = bySemester.get(semester);
+      if (!bucket) continue;
+      cumPoints += bucket.points;
+      cumMcs += bucket.mcs;
+      trend.push({ semester, label: semester.toUpperCase(), gpa: cumPoints / cumMcs });
+    }
+    return trend;
   }, [rows]);
 
   const handleSave = async () => {
@@ -213,6 +267,11 @@ export default function GpaCalculator() {
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-200 px-7 py-6 mb-6">
+          <h3 className="text-base font-bold text-gray-800 mb-5">GPA Trend</h3>
+          <GPATrendChart data={gpaTrend} />
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-200 px-7 py-6 mb-6">
           <div className="flex items-center justify-between mb-5">
             <h3 className="text-base font-bold text-gray-800">Modules Taken</h3>
             <button
@@ -235,8 +294,9 @@ export default function GpaCalculator() {
           )}
 
           {rows.length > 0 && (
-            <div className="grid grid-cols-[1fr_5rem_6.5rem_3.5rem_2rem] gap-3 px-1 mb-2">
+            <div className="grid grid-cols-[1fr_5.5rem_5rem_6.5rem_3.5rem_2rem] gap-3 px-1 mb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Module</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Sem</span>
               <span className="text-xs font-bold tracking-wider text-gray-400">MCs</span>
               <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Grade</span>
               <span className="text-xs font-bold uppercase tracking-wider text-gray-400 text-center">S/U?</span>
@@ -246,7 +306,7 @@ export default function GpaCalculator() {
 
           <div className="space-y-3">
             {rows.map((row, index) => (
-              <div key={index} className="grid grid-cols-[1fr_5rem_6.5rem_3.5rem_2rem] gap-3 items-center">
+              <div key={index} className="grid grid-cols-[1fr_5.5rem_5rem_6.5rem_3.5rem_2rem] gap-3 items-center">
                 <Select
                   options={moduleOptions}
                   styles={selectStyles}
@@ -260,9 +320,30 @@ export default function GpaCalculator() {
                   }
                   onChange={(selected) => handleModuleSelect(index, selected)}
                 />
-                <div className="w-full h-[48px] rounded-xl border border-gray-300 bg-gray-100 px-3 text-sm text-center flex items-center justify-center text-gray-600" title="Credits come from the NUS module catalogue">
-                  {row.moduleCredit ?? '—'}
-                </div>
+                <Select
+                  options={SEMESTER_OPTIONS}
+                  styles={selectStyles}
+                  placeholder="Sem"
+                  isClearable
+                  value={row.semesterTaken ? SEMESTER_OPTIONS.find((o) => o.value === row.semesterTaken) : null}
+                  onChange={(selected) => updateRow(index, 'semesterTaken', selected?.value || null)}
+                />
+                {row.creditUnresolved ? (
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={row.moduleCredit ?? ''}
+                    onChange={(e) => updateRow(index, 'moduleCredit', e.target.value === '' ? null : Number(e.target.value))}
+                    placeholder="MCs"
+                    title="Couldn't find this module's credits automatically — enter them manually"
+                    className="w-full h-[48px] rounded-xl border border-amber-300 bg-amber-50 px-3 text-sm text-center text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#1D63ED]"
+                  />
+                ) : (
+                  <div className="w-full h-[48px] rounded-xl border border-gray-300 bg-gray-100 px-3 text-sm text-center flex items-center justify-center text-gray-600" title="Credits are looked up automatically from the module catalogue">
+                    {row.moduleCredit ?? '—'}
+                  </div>
+                )}
                 <Select
                   options={GRADES}
                   styles={selectStyles}

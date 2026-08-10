@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from '../supabaseClient';
 import {
   GRADE_VALUES,
+  SEMESTER_OPTIONS,
   loadUserModuleRecords,
   replaceUserModuleRecords,
 } from '../utils/userModuleRecords';
@@ -138,7 +139,7 @@ export default function ProfilePage() {
     fetchProfile();
   }, []);
 
-  const addGradeRow = () => setGrades([...grades, { moduleCode: '', grade: null, isSu: false }]);
+  const addGradeRow = () => setGrades([...grades, { moduleCode: '', grade: null, isSu: false, semesterTaken: null }]);
   const removeGradeRow = (index) => setGrades(grades.filter((_, i) => i !== index));
   const updateGradeRow = (index, key, value) => {
     const next = [...grades];
@@ -300,6 +301,16 @@ export default function ProfilePage() {
                         : null
                     }
                     onChange={(selected) => handleGradeModuleSelect(index, selected)}
+                  />
+                </div>
+                <div className="w-24 shrink-0">
+                  <Select
+                    options={SEMESTER_OPTIONS}
+                    styles={selectStyles}
+                    placeholder="Sem"
+                    isClearable
+                    value={item.semesterTaken ? SEMESTER_OPTIONS.find((o) => o.value === item.semesterTaken) : null}
+                    onChange={(selected) => updateGradeRow(index, 'semesterTaken', selected?.value || null)}
                   />
                 </div>
                 <div className="w-28 shrink-0">
