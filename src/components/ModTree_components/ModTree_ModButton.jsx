@@ -3,6 +3,10 @@ import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { fetchSentiment } from '../../utils/api';
 import { lookupModuleMetadata } from './modTreeModuleData';
+import { useModuleRecommendation } from '../modRecco/modReccoState';
+import { formatConfidence, formatSupport } from '../modRecco/modReccoFormat';
+import { useGradeRecommendation } from '../modRecco/gradeReccoState';
+import { formatGradeRecommendation } from '../modRecco/gradeReccoFormat';
 
 const sentimentCache = {}
 const TOOLTIP_WIDTH = 320
@@ -19,6 +23,9 @@ export default function ModuleButton({
     onDragStart,
     onDragEnd,
 }) {
+    const recommendation = useModuleRecommendation(moduleCode)
+    const gradeRecommendation = useGradeRecommendation(moduleCode)
+    const isRecommended = !isSelected && Boolean(recommendation)
     const [isHovered, setIsHovered] = useState(false)
     const [sentiment, setSentiment] = useState(null)
     const [isLoadingSentiment, setIsLoadingSentiment] = useState(false)
@@ -40,9 +47,9 @@ export default function ModuleButton({
         return () => { isMounted = false; };
     }, [moduleCode]);
 
-    const bgColor = isSelected ? '#E1F5EE' : '#F7F6F2';
-    const textColor = isSelected ? '#1D9E75' : '#5F5E5A';
-    const borderColor = isSelected ? '#1D9E75' : 'rgba(0,0,0,0.1)';
+    const bgColor = isSelected ? '#E1F5EE' : isRecommended ? '#E6F1FB' : '#F7F6F2';
+    const textColor = isSelected ? '#1D9E75' : isRecommended ? '#185FA5' : '#5F5E5A';
+    const borderColor = isSelected ? '#1D9E75' : isRecommended ? '#185FA5' : 'rgba(0,0,0,0.1)';
 
     const clearHoverTimeout = () => {
         if (hoverTimeout.current) {
@@ -143,28 +150,40 @@ export default function ModuleButton({
     const displayCode = (matchedModule.id ?? moduleCode).toUpperCase();
 
     const renderSentimentRows = () => {
-        if (!sentiment) return null
+        const workload = sentiment?.workload
+        const difficulty = sentiment?.difficulty
 
-        const entries = [
-            ['workload', sentiment.workload],
-            ['difficulty', sentiment.difficulty],
-            ['expectedGrade', sentiment.expectedGrade],
-        ]
-
-        return entries.map(([key, aspect]) => {
+        const renderCompactAspect = (label, aspect) => {
             const pct = Math.round(Math.max(0, Math.min(1, aspect.score)) * 100)
-            const barColor = key === 'workload' ? '#D85A30' : key === 'difficulty' ? '#185FA5' : '#1D9E75'
+            const barColor = label === 'Workload' ? '#D85A30' : '#185FA5'
+
             return (
-                <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px' }}>
-                    <span style={{ minWidth: '96px', fontSize: '12px', fontWeight: '600', color: '#42413f', textTransform: 'capitalize' }}>
-                        {aspect.label}
-                    </span>
-                    <div style={{ flex: 1, height: '8px', borderRadius: '999px', backgroundColor: '#E8E6E3', overflow: 'hidden' }}>
+                <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '1px', minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', fontWeight: '600', color: '#42413F', gap: '4px' }}>
+                        <span>{label}</span>
+                        <span>{pct}%</span>
+                    </div>
+                    <div style={{ width: '100%', height: '6px', borderRadius: '999px', backgroundColor: '#E8E6E3', overflow: 'hidden' }}>
                         <div style={{ width: `${pct}%`, height: '100%', backgroundColor: barColor }} />
                     </div>
                 </div>
             )
-        })
+        }
+
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '10px' }}>
+                {sentiment && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                        {renderCompactAspect('Workload', workload)}
+                        {renderCompactAspect('Difficulty', difficulty)}
+                    </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', fontWeight: '600', color: '#42413F' }}>
+                    <span>Expected Grade</span>
+                    <span>{formatGradeRecommendation(gradeRecommendation)}</span>
+                </div>
+            </div>
+        )
     }
 
     return (
@@ -187,7 +206,7 @@ export default function ModuleButton({
                     onClick={() => onToggle?.()}
                     style={{
                         width: fullWidth ? '100%' : 'auto',
-                        padding: compact ? '8px 12px' : '10px 16px', borderRadius: '10px', cursor: 'pointer',
+                        padding: compact ? '8px 12px' : '10px 16px', borderRadius: '10px',
                         backgroundColor: bgColor,
                         color: textColor,
                         border: `2px solid ${borderColor}`,
@@ -248,6 +267,32 @@ export default function ModuleButton({
                     <p style={{ margin: '0', color: '#5F5E5A', fontSize: '12px' }}>
                         {matchedModule.description}
                     </p>
+
+                    {isRecommended && (
+                        <div style={{ marginTop: '10px', padding: '10px', borderRadius: '8px', backgroundColor: '#E6F1FB', border: '1px solid rgba(24, 95, 165, 0.2)' }}>
+                            <p style={{ margin: 0, color: '#185FA5', fontSize: '12px', fontWeight: '700' }}>
+                                Recommended because you took: {recommendation.antecedentModules.join(' + ')}
+                            </p>
+                            <p style={{ margin: '4px 0 0', color: '#42413f', fontSize: '12px' }}>
+                                Students that also took this module: {formatConfidence(recommendation.overall.confidence)}
+                                {formatSupport(recommendation.overall.ruleSupport, recommendation.overall.antecedentSupport)
+                                    ? ` (${formatSupport(recommendation.overall.ruleSupport, recommendation.overall.antecedentSupport)})`
+                                    : ''}
+                            </p>
+                            {formatConfidence(recommendation.sameMajor.confidence) ? (
+                                <p style={{ margin: '4px 0 0', color: '#42413f', fontSize: '12px' }}>
+                                    Same primary major: {formatConfidence(recommendation.sameMajor.confidence)} confidence
+                                    {formatSupport(recommendation.sameMajor.ruleSupport, recommendation.sameMajor.antecedentSupport)
+                                        ? ` (${formatSupport(recommendation.sameMajor.ruleSupport, recommendation.sameMajor.antecedentSupport)})`
+                                        : ''}
+                                </p>
+                            ) : (
+                                <p style={{ margin: '4px 0 0', color: '#5F5E5A', fontSize: '12px' }}>
+                                    Insufficient same-primary-major data.
+                                </p>
+                            )}
+                        </div>
+                    )}
 
                     {isLoadingSentiment && (
                         <p style={{ margin: '10px 0 0', color: '#7a766f', fontSize: '12px' }}>
