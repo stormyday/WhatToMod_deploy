@@ -3,6 +3,7 @@ import { fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import SelectionBasketButton from '../ModTree_SelectionBasketButton';
+import { GradeReccoContext } from '../../modRecco/gradeReccoState';
 
 const lookupModuleMetadataMock = vi.hoisted(() => vi.fn());
 const lookupModulePrereqMock = vi.hoisted(() => vi.fn());
@@ -46,7 +47,6 @@ describe('SelectionBasketButton', () => {
     fetchSentimentMock.mockResolvedValue({
       workload: { label: 'Workload', level: 'Medium', score: 0.5, descriptor: '' },
       difficulty: { label: 'Difficulty', level: 'Medium', score: 0.5, descriptor: '' },
-      expectedGrade: { label: 'Expected grade', level: 'A-', score: 0.8, descriptor: '' },
       reviewCount: 12,
     });
   });
@@ -56,16 +56,22 @@ describe('SelectionBasketButton', () => {
 
     render(
       <MemoryRouter>
-        <SelectionBasketButton
-          moduleCode="cs1234"
-          isSelected
-          onRemove={onRemove}
-          availableModuleCodes={[]}
-        />
+        <GradeReccoContext.Provider value={new Map([['CS1234', {
+          predictedGrade: 'B',
+          predictionSource: 'gpa',
+        }]])}>
+          <SelectionBasketButton
+            moduleCode="cs1234"
+            isSelected
+            onRemove={onRemove}
+            availableModuleCodes={[]}
+          />
+        </GradeReccoContext.Provider>
       </MemoryRouter>
     );
 
     expect(await screen.findByText('CS1234')).toBeInTheDocument();
+    expect(screen.getByText('B (Based on GPA)')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText('Missing prerequisite from earlier semesters:')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'X' }));

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchSentiment } from '../../utils/api';
 import { getPrereqConflictMessages, lookupModuleMetadata, lookupModulePrereq, normalizeModuleCode } from './modTreeModuleData';
+import { useGradeRecommendation } from '../modRecco/gradeReccoState';
+import { formatGradeRecommendation } from '../modRecco/gradeReccoFormat';
 
 const sentimentCache = {};
 
@@ -17,6 +19,7 @@ export default function SelectionBasketButton({
     suppressPrereqWarnings = false,
 }) {
     const normalizedModuleCode = useMemo(() => normalizeModuleCode(moduleCode), [moduleCode]);
+    const gradeRecommendation = useGradeRecommendation(moduleCode);
     const [matchedModule, setMatchedModule] = useState(null);
     const [loadingModule, setLoadingModule] = useState(true);
     const [prereqInfo, setPrereqInfo] = useState(null);
@@ -143,11 +146,8 @@ export default function SelectionBasketButton({
     const borderColor = isSelected ? '#1D9E75' : 'rgba(0,0,0,0.1)';
 
     const renderSentimentRows = () => {
-        if (!sentiment) return null;
-
-        const workload = sentiment.workload;
-        const difficulty = sentiment.difficulty;
-        const expectedGrade = sentiment.expectedGrade;
+        const workload = sentiment?.workload;
+        const difficulty = sentiment?.difficulty;
 
         const renderCompactAspect = (label, aspect) => {
             const pct = Math.round(Math.max(0, Math.min(1, aspect.score)) * 100);
@@ -168,14 +168,16 @@ export default function SelectionBasketButton({
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                    {renderCompactAspect('Workload', workload)}
-                    {renderCompactAspect('Difficulty', difficulty)}
-                </div>
+                {sentiment && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                        {renderCompactAspect('Workload', workload)}
+                        {renderCompactAspect('Difficulty', difficulty)}
+                    </div>
+                )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', fontWeight: '600', color: '#42413F' }}>
                         <span>Expected Grade</span>
-                        <span>{expectedGrade.level}</span>
+                        <span>{formatGradeRecommendation(gradeRecommendation)}</span>
                     </div>
                 </div>
             </div>
