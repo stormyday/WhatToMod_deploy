@@ -25,14 +25,14 @@ export function normalizeGradeRecommendation(row = {}) {
 
 export function formatGradeRecommendation(recommendation) {
   if (!recommendation?.predictedGrade) {
-    return 'No prediction';
+    return 'No prediction available';
   }
 
   if (recommendation.predictionSource === 'gpa') {
     return `${recommendation.predictedGrade} (Based on GPA)`;
   }
 
-  if (!recommendation.referenceModuleCount) return 'No prediction';
+  if (!recommendation.referenceModuleCount) return 'No prediction available';
 
   return `${recommendation.predictedGrade} (${recommendation.referenceModuleCount}-module reference)`;
 }
