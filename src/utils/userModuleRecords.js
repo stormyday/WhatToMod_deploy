@@ -2,6 +2,52 @@ import { supabase } from '../supabaseClient';
 
 export const GRADE_VALUES = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'D+', 'D', 'F'];
 
+export const GRADE_POINTS = {
+  'A+': 5.0, 'A': 5.0, 'A-': 4.5,
+  'B+': 4.0, 'B': 3.5, 'B-': 3.0,
+  'C+': 2.5, 'C': 2.0,
+  'D+': 1.5, 'D': 1.0, 'F': 0.0,
+};
+
+export function calculateGradePointAverage(records = []) {
+  let points = 0;
+  let countedMcs = 0;
+  let suMcs = 0;
+
+  records.forEach((record) => {
+    const moduleCredit = Number(record?.moduleCredit ?? record?.module_credit);
+    if (!Number.isFinite(moduleCredit) || moduleCredit <= 0) return;
+    if (record?.isSu ?? record?.is_su) {
+      suMcs += moduleCredit;
+      return;
+    }
+
+    const gradePoint = GRADE_POINTS[record?.grade];
+    if (gradePoint === undefined) return;
+    points += gradePoint * moduleCredit;
+    countedMcs += moduleCredit;
+  });
+
+  return {
+    cap: countedMcs > 0 ? points / countedMcs : null,
+    countedMcs,
+    suMcs,
+  };
+}
+
+export function gradeFromGpa(cap) {
+  if (!Number.isFinite(cap)) return null;
+  if (cap >= 4.75) return 'A';
+  if (cap >= 4.25) return 'A-';
+  if (cap >= 3.75) return 'B+';
+  if (cap >= 3.25) return 'B';
+  if (cap >= 2.75) return 'B-';
+  if (cap >= 2.25) return 'C+';
+  if (cap >= 1.75) return 'C';
+  if (cap >= 1.25) return 'D+';
+  if (cap >= 0.5) return 'D';
+  return 'F';
+}
 // Distinct from the unrelated `semester` field used elsewhere; order matters here since consumers rely on it for the GPA trend.
 export const SEMESTERS = ['y1s1', 'y1s2', 'y2s1', 'y2s2', 'y3s1', 'y3s2', 'y4s1', 'y4s2'];
 export const SEMESTER_OPTIONS = SEMESTERS.map((s) => ({ value: s, label: s.toUpperCase() }));

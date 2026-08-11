@@ -27,6 +27,8 @@ import AcadsPlanner from './AcadsPlanner/ModTree_AcadsPlanner';
 import { ModTreeSearchBar } from './ModTree_components/ModTree_SearchBar';
 import { useModTreeModuleSearch } from '../hooks/useModTreeModuleSearch';
 import { addBlankModuleRecords } from '../utils/userModuleRecords';
+import ModReccoProvider from './modRecco/ModReccoProvider';
+import GradeReccoProvider from './modRecco/GradeReccoProvider';
 import "@fontsource/league-spartan/700.css";
  
 export default function ModuleTreePage() {
@@ -426,6 +428,13 @@ export default function ModuleTreePage() {
         filteredModules.filter(mod => getModuleDisplayLevel(mod, orGroupDisplayLevels) === lvl)
     ), [filteredModules, orGroupDisplayLevels]);
 
+    const gradeRecommendationModuleCodes = useMemo(() => [...new Set([
+        ...Object.keys(moduleDatabase),
+        ...selectedMods,
+        ...customModules.map((module) => module.moduleCode),
+        ...plannerModuleIds,
+    ].map(normalizeModuleCode).filter(Boolean))], [customModules, moduleDatabase, plannerModuleIds, selectedMods]);
+
     const caseGRow = useMemo(() => {
         if (selectedMajor === 'Empty-Major') {
             return null;
@@ -468,6 +477,8 @@ export default function ModuleTreePage() {
                 </button>
             </header>
 
+            <ModReccoProvider>
+            <GradeReccoProvider moduleCodes={gradeRecommendationModuleCodes} userId={session?.user?.id} enabled={Boolean(session?.user?.id)}>
             <main style={{ flex: 1, width: '100%' }}>
                 <div style={{ fontFamily: 'sans-serif', padding: '24px', paddingRight: '150px', backgroundColor: '#F7F6F2', width: '100%', boxSizing: 'border-box', position: 'center', }}>
                     <SelectMajor selectedMajor={selectedMajor} onMajorChange={setSelectedMajor} />
@@ -576,6 +587,8 @@ export default function ModuleTreePage() {
                     semesterLabels={PLANNER_COLUMN_LABELS}
                 />
             </main>
+            </GradeReccoProvider>
+            </ModReccoProvider>
         </div>
     );
 }

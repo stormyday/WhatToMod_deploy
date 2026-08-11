@@ -11,6 +11,8 @@
     "test:watch": "vitest",
     "preview": "vite preview",
     "sync-module-catalog": "node --env-file=.env scripts/sync-module-catalog.mjs",
+    "build-module-recommendations": "python3 scripts/build-module-recommendations.py",
+    "build-grade-recommendations": "python3 scripts/build-grade-recommendations.py",
     "seed-synthetic-users": "node --env-file=.env scripts/seed-synthetic-users.mjs",
     "report-synthetic-seed-run": "node --env-file=.env scripts/report-synthetic-seed-run.mjs",
     "validate-synthetic-users": "node --env-file=.env scripts/validate-synthetic-users.mjs",
