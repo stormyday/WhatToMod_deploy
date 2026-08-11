@@ -17,7 +17,14 @@ function isModuleSelected(moduleId, selectedMods) {
     return selectedMods.includes(moduleId);
 }
 
-function getLayerCompletionState(layer, selectedMods) {
+function isPillarSatisfied(pillar, selectedMods, manualPillarOverrides) {
+    if (manualPillarOverrides?.[pillar.id]) {
+        return true;
+    }
+    return Boolean(pillar.options?.some(option => isModuleSelected(option.id, selectedMods)));
+}
+
+function getLayerCompletionState(layer, selectedMods, manualPillarOverrides = {}) {
     const orGroupIds = [...new Set(layer.map(mod => mod.orGroupId).filter(Boolean))];
     const requirements = [];
 
@@ -25,7 +32,7 @@ function getLayerCompletionState(layer, selectedMods) {
         const groupModules = layer.filter(mod => mod.orGroupId === groupId);
         const anySelected = groupModules.some((groupMod) =>
             groupMod.isPillar
-                ? groupMod.options?.some(option => isModuleSelected(option.id, selectedMods))
+                ? isPillarSatisfied(groupMod, selectedMods, manualPillarOverrides)
                 : isModuleSelected(groupMod.id, selectedMods)
         );
         requirements.push(anySelected);
@@ -33,13 +40,12 @@ function getLayerCompletionState(layer, selectedMods) {
 
     layer.filter(mod => !mod.orGroupId).forEach((mod) => {
         if (mod.isPillar) {
-            requirements.push(Boolean(mod.options?.some(option => isModuleSelected(option.id, selectedMods))));
+            requirements.push(isPillarSatisfied(mod, selectedMods, manualPillarOverrides));
         } else if (mod.isRequirementGroup) {
             const pillars = Array.isArray(mod.RequirementsPillar) ? mod.RequirementsPillar : [];
             requirements.push(
                 pillars.length > 0
-                && pillars.every((pillar) => Array.isArray(pillar.options)
-                    && pillar.options.some((option) => isModuleSelected(option.id, selectedMods)))
+                && pillars.every((pillar) => isPillarSatisfied(pillar, selectedMods, manualPillarOverrides))
             );
         } else if (mod.isSingleModulePillar) {
             requirements.push(isModuleSelected(mod.id, selectedMods));
@@ -62,6 +68,9 @@ export default function ModuleTree({
     onToggleModule,
     customModules = [],
     customModuleEmptyMessage = 'Search above to add modules here.',
+    takenMods = [],
+    manualPillarOverrides = {},
+    onSetPillarOverride,
 }) {
     const level4000ActiveTracksVersion = useSyncExternalStore(
         subscribeLevel4000ActiveTracks,
@@ -139,6 +148,7 @@ export default function ModuleTree({
                                 <ModuleButton
                                     moduleCode={moduleCode}
                                     isSelected={isSelected}
+                                    isTaken={takenMods.includes(moduleCode)}
                                     moduleTreeState={moduleTreeState}
                                     compact
                                     onToggle={() => onToggleModule(moduleCode)}
@@ -155,7 +165,7 @@ export default function ModuleTree({
         <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'stretch', gap: '3px', width: '100%', overflowX: 'auto', overflowY: 'hidden', minWidth: '0' }}>
             {modulesByLvl.map((layer, layerIndex) => {
                 const renderedGroups = new Set();
-                const { layerComplete } = getLayerCompletionState(layer, selectedMods);
+                const { layerComplete } = getLayerCompletionState(layer, selectedMods, manualPillarOverrides);
 
                 return (
                     <div
@@ -183,6 +193,9 @@ export default function ModuleTree({
                                             <PillarDropdown
                                                 pillarModule={modInTree}
                                                 selectedMods={selectedMods}
+                                                takenMods={takenMods}
+                                                manualOverride={manualPillarOverrides[modInTree.id]}
+                                                onSetPillarOverride={onSetPillarOverride}
                                                 moduleTreeState={moduleTreeState}
                                                 onToggleModule={onToggleModule}
                                             />
@@ -197,6 +210,9 @@ export default function ModuleTree({
                                             <RequirementGroup
                                                 nodeData={modInTree}
                                                 selectedMods={selectedMods}
+                                                takenMods={takenMods}
+                                                manualPillarOverrides={manualPillarOverrides}
+                                                onSetPillarOverride={onSetPillarOverride}
                                                 moduleTreeState={moduleTreeState}
                                                 onToggleModule={onToggleModule}
                                             />
@@ -220,6 +236,7 @@ export default function ModuleTree({
                                             <ModuleButton
                                                 moduleCode={modInTree.id}
                                                 isSelected={isSelected}
+                                                isTaken={takenMods.includes(modInTree.id)}
                                                 moduleTreeState={moduleTreeState}
                                                 compact
                                                 onToggle={() => onToggleModule(modInTree.id)}
@@ -258,6 +275,7 @@ export default function ModuleTree({
                                                 <ModuleButton
                                                     moduleCode={singleGroupModule.id}
                                                     isSelected={isSelected}
+                                                    isTaken={takenMods.includes(singleGroupModule.id)}
                                                     moduleTreeState={moduleTreeState}
                                                     compact
                                                     onToggle={() => onToggleModule(singleGroupModule.id)}
@@ -281,6 +299,7 @@ export default function ModuleTree({
                                                         key={groupMod.id}
                                                         moduleCode={groupMod.id}
                                                         isSelected={selectedMods.includes(groupMod.id)}
+                                                        isTaken={takenMods.includes(groupMod.id)}
                                                         moduleTreeState={moduleTreeState}
                                                         compact
                                                         onToggle={() => onToggleModule(groupMod.id)}
@@ -297,6 +316,7 @@ export default function ModuleTree({
                                         <ModuleButton
                                             moduleCode={modInTree.id}
                                             isSelected={selectedMods.includes(modInTree.id)}
+                                            isTaken={takenMods.includes(modInTree.id)}
                                             moduleTreeState={moduleTreeState}
                                             compact
                                             onToggle={() => onToggleModule(modInTree.id)}

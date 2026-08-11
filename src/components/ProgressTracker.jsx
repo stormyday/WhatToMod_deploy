@@ -6,9 +6,10 @@ import { normalizeModuleCode } from './ModTree_components/modTreeModuleData';
 import ModuleTree from './ModTree_components/ModTree_ModTree';
 import ModuleButton from './ModTree_components/ModTree_ModButton';
 import ModTreeProgressBar from './ModTree_components/ModTree_ProgressBar';
-import { analyzeLevel4000Pathway } from './ModTree_components/ModTree_MultiLayerButtonLogic';
 import { loadUserModuleRecords } from '../utils/userModuleRecords';
 import "@fontsource/league-spartan/700.css";
+
+const SECTION_KINDS = ['all', 'major', 'second_major', 'minor', 'level', 'pool', 'custom'];
 
 function isCaseGRow(row) {
     return typeof row?.id === 'string'
@@ -35,48 +36,6 @@ function getModuleDisplayLevel(module, groupDisplayLevels) {
     const rawLevel = Number(groupedLevel ?? module?.level);
 
     return Number.isFinite(rawLevel) ? rawLevel : module?.level;
-}
-
-function getLayerCompletionMetrics(layer, selectedMods) {
-    const orGroupIds = [...new Set(layer.map((mod) => mod.orGroupId).filter(Boolean))];
-    const requirements = [];
-
-    orGroupIds.forEach((groupId) => {
-        const groupModules = layer.filter((mod) => mod.orGroupId === groupId);
-        const anySelected = groupModules.some((groupMod) =>
-            groupMod.isPillar
-                ? groupMod.options?.some((option) => selectedMods.includes(option.id))
-                : selectedMods.includes(groupMod.id)
-        );
-        requirements.push(anySelected);
-    });
-
-    layer.filter((mod) => !mod.orGroupId).forEach((mod) => {
-        if (mod.isPillar) {
-            requirements.push(Boolean(mod.options?.some((option) => selectedMods.includes(option.id))));
-        } else if (mod.isRequirementGroup) {
-            const pillars = Array.isArray(mod.RequirementsPillar) ? mod.RequirementsPillar : [];
-            requirements.push(
-                pillars.length > 0
-                && pillars.every((pillar) => Array.isArray(pillar.options)
-                    && pillar.options.some((option) => selectedMods.includes(option.id)))
-            );
-        } else if (mod.isSingleModulePillar) {
-            requirements.push(selectedMods.includes(mod.id));
-        } else if (mod.isLevel4000Pathway) {
-            requirements.push(analyzeLevel4000Pathway(mod, selectedMods).complete);
-        } else {
-            requirements.push(selectedMods.includes(mod.id));
-        }
-    });
-
-    const totalCount = requirements.length;
-    const completedCount = requirements.filter(Boolean).length;
-
-    return {
-        completedCount,
-        totalCount,
-    };
 }
 
 function rowToModule(row) {
@@ -138,32 +97,10 @@ function normalizeSavedModTreeState(savedState) {
         customModules: Array.isArray(savedState.customModules)
             ? savedState.customModules.map(normalizeCustomModuleRecord).filter(Boolean)
             : [],
-        takenSections: Array.isArray(savedState.takenSections)
-            ? savedState.takenSections
-                .map((section, index) => {
-                    if (!section || typeof section !== 'object') {
-                        return null;
-                    }
-
-                    return {
-                        id: typeof section.id === 'string' && section.id.trim()
-                            ? section.id
-                            : createSectionId(),
-                        title: typeof section.title === 'string' ? section.title : '',
-                        moduleCodes: Array.isArray(section.moduleCodes)
-                            ? section.moduleCodes.map(normalizeModuleCode).filter(Boolean)
-                            : [],
-                        order: Number.isInteger(section.order) ? section.order : index,
-                    };
-                })
-                .filter(Boolean)
-                .sort((a, b) => a.order - b.order)
-                .map((section) => ({
-                    id: section.id,
-                    title: section.title,
-                    moduleCodes: section.moduleCodes,
-                }))
-            : null,
+        takenSections: Array.isArray(savedState.takenSections) ? savedState.takenSections : null,
+        manualPillarOverrides: savedState.manualPillarOverrides && typeof savedState.manualPillarOverrides === 'object'
+            ? Object.fromEntries(Object.entries(savedState.manualPillarOverrides).filter(([, value]) => value === true))
+            : {},
     };
 }
 
@@ -179,49 +116,100 @@ function createSectionId() {
     return `section-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function createTakenSection(title = '', moduleCodes = []) {
+function createTakenSection(title = '', moduleCodes = [], kind = 'custom') {
     return {
         id: createSectionId(),
         title,
         moduleCodes: Array.isArray(moduleCodes) ? moduleCodes : [],
+        kind: SECTION_KINDS.includes(kind) ? kind : 'custom',
     };
 }
 
-function getDefaultSecondarySectionTitle(selectedMajor) {
-    const majorTitle = typeof selectedMajor === 'string' ? selectedMajor.trim() : '';
-    return majorTitle || 'Major';
+function createDefaultTakenSections(fallbackModuleCodes = []) {
+    return [createTakenSection('All modules taken', fallbackModuleCodes, 'all')];
 }
 
-function createDefaultTakenSections(selectedMajor, fallbackModuleCodes = []) {
-    return [
-        createTakenSection('All modules taken', fallbackModuleCodes),
-        createTakenSection(getDefaultSecondarySectionTitle(selectedMajor), []),
-    ];
-}
+function inferLegacyKind(title, { hasMaster, hasMajorSection, selectedMajor }) {
+    const normalizedTitle = (title ?? '').trim().toLowerCase();
 
-const FUTURE_SECTION_PLACEHOLDER = 'minor/specialisation/special programme';
+    if (!hasMaster && normalizedTitle === 'all modules taken') {
+        return 'all';
+    }
+
+    if (!hasMajorSection && typeof selectedMajor === 'string' && selectedMajor !== 'Empty-Major'
+        && normalizedTitle === selectedMajor.trim().toLowerCase()) {
+        return 'major';
+    }
+
+    return 'custom';
+}
 
 function normalizeTakenSections(savedSections, selectedMajor, fallbackModuleCodes = []) {
     if (Array.isArray(savedSections) && savedSections.length > 0) {
-        const normalized = savedSections.map((section, index) => ({
+        const withExplicitKind = savedSections.map((section, index) => ({
             id: typeof section?.id === 'string' && section.id.trim() ? section.id : createSectionId(),
             title: typeof section?.title === 'string' ? section.title : '',
             moduleCodes: Array.isArray(section?.moduleCodes)
                 ? section.moduleCodes.map(normalizeModuleCode).filter(Boolean)
                 : [],
+            kind: SECTION_KINDS.includes(section?.kind) ? section.kind : null,
             order: Number.isInteger(section?.order) ? section.order : index,
-        }))
-        .sort((a, b) => a.order - b.order)
-        .map((section) => ({
-            id: section.id,
-            title: section.title,
-            moduleCodes: section.moduleCodes,
         }));
 
-        return normalized;
+        let hasMaster = withExplicitKind.some((section) => section.kind === 'all');
+        let hasMajorSection = withExplicitKind.some((section) => section.kind === 'major');
+
+        const withInferredKind = withExplicitKind.map((section) => {
+            if (section.kind) {
+                return section;
+            }
+            const inferred = inferLegacyKind(section.title, { hasMaster, hasMajorSection, selectedMajor });
+            if (inferred === 'all') hasMaster = true;
+            if (inferred === 'major') hasMajorSection = true;
+            return { ...section, kind: inferred };
+        });
+
+        return withInferredKind
+            .sort((a, b) => a.order - b.order)
+            .map(({ id, title, moduleCodes, kind }) => ({ id, title, moduleCodes, kind }));
     }
 
-    return createDefaultTakenSections(selectedMajor, fallbackModuleCodes);
+    return createDefaultTakenSections(fallbackModuleCodes);
+}
+
+function ensureDefaultSections(sections, { selectedMajor, secondMajor, minor }) {
+    let next = sections;
+
+    if (!next.some((section) => section.kind === 'all')) {
+        next = [createTakenSection('All modules taken', [], 'all'), ...next];
+    }
+
+    const majorTitle = typeof selectedMajor === 'string' && selectedMajor !== 'Empty-Major'
+        ? selectedMajor.trim()
+        : '';
+    if (majorTitle && !next.some((section) => section.kind === 'major')) {
+        next = [...next, createTakenSection(majorTitle, [], 'major')];
+    }
+
+    const secondMajorTitle = typeof secondMajor === 'string' ? secondMajor.trim() : '';
+    if (secondMajorTitle && !next.some((section) => section.kind === 'second_major')) {
+        next = [...next, createTakenSection(secondMajorTitle, [], 'second_major')];
+    }
+
+    const minorTitle = typeof minor === 'string' ? minor.trim() : '';
+    if (minorTitle && !next.some((section) => section.kind === 'minor')) {
+        next = [...next, createTakenSection(minorTitle, [], 'minor')];
+    }
+
+    return next;
+}
+
+function syncMasterSection(sections, takenModuleCodes) {
+    return sections.map((section) => (
+        section.kind === 'all'
+            ? { ...section, moduleCodes: takenModuleCodes }
+            : section
+    ));
 }
 
 export default function ProgressTracker() {
@@ -232,9 +220,10 @@ export default function ProgressTracker() {
     const [selectedMajor, setSelectedMajor] = useState('Empty-Major');
     const [selectedMods, setSelectedMods] = useState([]);
     const [customModules, setCustomModules] = useState([]);
-    const [takenSections, setTakenSections] = useState(
-        createDefaultTakenSections('Empty-Major', [])
-    );
+    const [takenModuleCodes, setTakenModuleCodes] = useState([]);
+    const [manualPillarOverrides, setManualPillarOverrides] = useState({});
+    const [takenSections, setTakenSections] = useState(createDefaultTakenSections([]));
+    const [hasCompletedModTree, setHasCompletedModTree] = useState(true);
     const [trackerReady, setTrackerReady] = useState(false);
     const savedModTreeStateRef = useRef({});
 
@@ -254,7 +243,7 @@ export default function ProgressTracker() {
             const profilePromise = userId
                 ? supabase
                     .from('profiles')
-                    .select('major,modtree_state')
+                    .select('major,second_major,minor,modtree_state')
                     .eq('id', userId)
                     .maybeSingle()
                 : Promise.resolve({ data: null, error: null });
@@ -295,15 +284,31 @@ export default function ProgressTracker() {
             const restoredState = normalizeSavedModTreeState(profileResult?.data?.modtree_state);
             const rawSavedState = profileResult?.data?.modtree_state ?? {};
             const profileMajor = profileResult?.data?.major ?? 'Empty-Major';
+            const profileSecondMajor = profileResult?.data?.second_major ?? '';
+            const profileMinor = profileResult?.data?.minor ?? '';
             const profileTakenCodes = getTakenModuleCodes(userModuleRecords);
+            const savedMajor = restoredState?.selectedMajor;
+            const effectiveMajor = savedMajor && savedMajor !== 'Empty-Major' ? savedMajor : profileMajor;
+            const hasCompletedModTree = Boolean(
+                restoredState && Array.isArray(restoredState.selectedMods) && restoredState.selectedMods.length > 0
+            );
+
+            const baseSections = normalizeTakenSections(restoredState?.takenSections, effectiveMajor, profileTakenCodes);
+            const withDefaults = ensureDefaultSections(baseSections, {
+                selectedMajor: effectiveMajor,
+                secondMajor: profileSecondMajor,
+                minor: profileMinor,
+            });
+            const syncedSections = syncMasterSection(withDefaults, profileTakenCodes);
 
             setAllModules(modules);
-            setSelectedMajor(restoredState?.selectedMajor ?? profileMajor);
+            setSelectedMajor(effectiveMajor);
             setSelectedMods(restoredState?.selectedMods ?? []);
             setCustomModules(restoredState?.customModules ?? []);
-            setTakenSections(
-                normalizeTakenSections(restoredState?.takenSections, restoredState?.selectedMajor ?? profileMajor, profileTakenCodes)
-            );
+            setManualPillarOverrides(restoredState?.manualPillarOverrides ?? {});
+            setTakenModuleCodes(profileTakenCodes);
+            setTakenSections(syncedSections);
+            setHasCompletedModTree(hasCompletedModTree);
             savedModTreeStateRef.current = rawSavedState;
             setTrackerReady(true);
             setLoading(false);
@@ -347,25 +352,36 @@ export default function ProgressTracker() {
         filteredModules.filter((mod) => getModuleDisplayLevel(mod, orGroupDisplayLevels) === lvl)
     ), [filteredModules, orGroupDisplayLevels]);
 
-    const progressMetrics = useMemo(() => {
-        return modulesByLvl.reduce((accumulator, layer) => {
-            const metrics = getLayerCompletionMetrics(layer, selectedMods);
-            accumulator.completedCount += metrics.completedCount;
-            accumulator.totalCount += metrics.totalCount;
-            return accumulator;
-        }, { completedCount: 0, totalCount: 0 });
-    }, [modulesByLvl, selectedMods]);
+    const progressMetrics = useMemo(() => ({
+        completedCount: selectedMods.filter((code) => takenModuleCodes.includes(code)).length,
+        totalCount: selectedMods.length,
+    }), [selectedMods, takenModuleCodes]);
 
     const moduleTreeState = useMemo(
         () => ({ selectedMajor, selectedMods, customModules, plannerModules: {} }),
         [selectedMajor, selectedMods, customModules]
     );
 
+    const codeSectionMembership = useMemo(() => {
+        const map = new Map();
+        takenSections.forEach((section) => {
+            if (section.kind === 'all' || section.kind === 'pool') {
+                return;
+            }
+            (section.moduleCodes ?? []).forEach((code) => {
+                if (!map.has(code)) {
+                    map.set(code, []);
+                }
+                map.get(code).push({ id: section.id, title: section.title || 'Untitled' });
+            });
+        });
+        return map;
+    }, [takenSections]);
+
+    const needsProfileSetup = selectedMajor === 'Empty-Major' || takenModuleCodes.length === 0;
+
     const addTakenSection = () => {
-        setTakenSections((current) => [
-            ...current,
-            createTakenSection('', []),
-        ]);
+        setTakenSections((current) => [...current, createTakenSection('', [], 'custom')]);
     };
 
     const updateSectionTitle = (sectionId, title) => {
@@ -378,39 +394,34 @@ export default function ProgressTracker() {
         );
     };
 
-    const moveTakenModule = (moduleCode, sourceSectionId, targetSectionId) => {
+    const addModuleToSection = (moduleCode, targetSectionId) => {
         const normalizedCode = normalizeModuleCode(moduleCode);
-        if (!normalizedCode || !sourceSectionId || !targetSectionId) {
+        if (!normalizedCode || !targetSectionId) {
             return;
         }
 
-        setTakenSections((current) => {
-            const sourceSectionIndex = current.findIndex((section) => section.id === sourceSectionId);
-            const targetSectionIndex = current.findIndex((section) => section.id === targetSectionId);
-
-            if (sourceSectionIndex === -1 || targetSectionIndex === -1) {
-                return current;
+        setTakenSections((current) => current.map((section) => {
+            if (section.id !== targetSectionId || section.kind === 'all') {
+                return section;
             }
-
-            if (sourceSectionId === targetSectionId) {
-                return current;
+            if (section.moduleCodes.some((code) => normalizeModuleCode(code) === normalizedCode)) {
+                return section;
             }
+            return { ...section, moduleCodes: [...section.moduleCodes, normalizedCode] };
+        }));
+    };
 
-            const next = current.map((section) => ({
-                ...section,
-                moduleCodes: Array.isArray(section.moduleCodes) ? [...section.moduleCodes] : [],
-            }));
+    const removeModuleFromSection = (moduleCode, sectionId) => {
+        const normalizedCode = normalizeModuleCode(moduleCode);
+        if (!normalizedCode || !sectionId) {
+            return;
+        }
 
-            next[sourceSectionIndex].moduleCodes = next[sourceSectionIndex].moduleCodes.filter(
-                (code) => normalizeModuleCode(code) !== normalizedCode
-            );
-
-            if (!next[targetSectionIndex].moduleCodes.some((code) => normalizeModuleCode(code) === normalizedCode)) {
-                next[targetSectionIndex].moduleCodes = [...next[targetSectionIndex].moduleCodes, normalizedCode];
-            }
-
-            return next;
-        });
+        setTakenSections((current) => current.map((section) => (
+            section.id === sectionId && section.kind !== 'all'
+                ? { ...section, moduleCodes: section.moduleCodes.filter((code) => normalizeModuleCode(code) !== normalizedCode) }
+                : section
+        )));
     };
 
     const deleteTakenSection = (sectionId) => {
@@ -419,31 +430,12 @@ export default function ProgressTracker() {
         }
 
         setTakenSections((current) => {
-            if (current.length <= 1) {
-                return current;
-            }
-
-            const primarySection = current[0];
             const sectionToDelete = current.find((section) => section.id === sectionId);
-
-            if (!sectionToDelete || sectionToDelete.id === primarySection.id) {
+            if (!sectionToDelete || sectionToDelete.kind === 'all') {
                 return current;
             }
 
-            const mergedPrimaryModules = [
-                ...(primarySection.moduleCodes ?? []),
-                ...(sectionToDelete.moduleCodes ?? []),
-            ].map(normalizeModuleCode).filter(Boolean);
-
-            const dedupedPrimaryModules = [...new Set(mergedPrimaryModules)];
-
-            return current
-                .filter((section) => section.id !== sectionId)
-                .map((section, index) => (
-                    index === 0
-                        ? { ...section, moduleCodes: dedupedPrimaryModules }
-                        : section
-                ));
+            return current.filter((section) => section.id !== sectionId);
         });
     };
 
@@ -463,6 +455,7 @@ export default function ProgressTracker() {
                     id: section.id,
                     title: section.title,
                     moduleCodes: Array.isArray(section.moduleCodes) ? section.moduleCodes : [],
+                    kind: section.kind,
                     order: index,
                 })),
             };
@@ -521,26 +514,105 @@ export default function ProgressTracker() {
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-                        <ModTreeProgressBar
-                            completed={progressMetrics.completedCount}
-                            total={progressMetrics.totalCount}
-                        />
-
                         {loading ? (
                             <div style={{ padding: '24px', textAlign: 'center', color: '#666' }}>
                                 Loading progress tracker…
                             </div>
+                        ) : needsProfileSetup ? (
+                            <div
+                                style={{
+                                    backgroundColor: '#ffffff',
+                                    border: '1px solid rgba(24, 95, 165, 0.2)',
+                                    borderRadius: '16px',
+                                    padding: '24px',
+                                    textAlign: 'center',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                                }}
+                            >
+                                <p style={{ margin: '0 0 14px', color: '#1a1a18', fontSize: '14px', fontWeight: '600' }}>
+                                    Set your major and key in your grades on your Profile page to see your progress here!
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/profilePage')}
+                                    style={{
+                                        padding: '10px 20px',
+                                        borderRadius: '999px',
+                                        border: 'none',
+                                        backgroundColor: '#2564F8',
+                                        color: '#ffffff',
+                                        fontSize: '13px',
+                                        fontWeight: '700',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    Go to Profile
+                                </button>
+                            </div>
                         ) : (
-                            <ModuleTree
-                                modulesByLvl={modulesByLvl}
-                                selectedMods={selectedMods}
-                                selectedMajor={selectedMajor}
-                                moduleTreeState={moduleTreeState}
-                                onToggleModule={() => {}}
-                                customModules={customModules}
-                                customModuleEmptyMessage="No custom modules saved."
-                            />
-                        )}
+                            <>
+                                <ModTreeProgressBar
+                                    completed={progressMetrics.completedCount}
+                                    total={progressMetrics.totalCount}
+                                />
+
+                                {!hasCompletedModTree && filteredModules.length > 0 ? (
+                                    <div
+                                        style={{
+                                            backgroundColor: '#ffffff',
+                                            border: '1px solid rgba(24, 95, 165, 0.2)',
+                                            borderRadius: '16px',
+                                            padding: '24px',
+                                            textAlign: 'center',
+                                            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                                        }}
+                                    >
+                                        <p style={{ margin: '0 0 14px', color: '#1a1a18', fontSize: '14px', fontWeight: '600' }}>
+                                            You haven't completed your modTree yet, go plan first to see your progress!
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate('/moduleTree', {
+                                                state: { moduleTreeState: { selectedMajor } },
+                                            })}
+                                            style={{
+                                                padding: '10px 20px',
+                                                borderRadius: '999px',
+                                                border: 'none',
+                                                backgroundColor: '#2564F8',
+                                                color: '#ffffff',
+                                                fontSize: '13px',
+                                                fontWeight: '700',
+                                                cursor: 'pointer',
+                                            }}
+                                        >
+                                            Plan Now
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <ModuleTree
+                                        modulesByLvl={modulesByLvl}
+                                        selectedMods={selectedMods}
+                                        takenMods={takenModuleCodes}
+                                        selectedMajor={selectedMajor}
+                                        moduleTreeState={moduleTreeState}
+                                        onToggleModule={() => {}}
+                                        customModules={customModules}
+                                        customModuleEmptyMessage="No custom modules saved."
+                                        manualPillarOverrides={manualPillarOverrides}
+                                    />
+                                )}
+
+                                <div
+                                    onClick={() => navigate('/moduleTree', {
+                                        state: { moduleTreeState: { selectedMajor } },
+                                    })}
+                                    className="mt-2 bg-white rounded-2xl border border-gray-200 px-7 py-5 text-center cursor-pointer hover:border-[#2564F8] transition"
+                                >
+                                    <p className="text-sm font-semibold text-gray-700">
+                                        Incomplete modTree? <span className="text-[#2564F8]">Continue planning here →</span>
+                                    </p>
+                                </div>
 
                         <section
                             style={{
@@ -551,7 +623,7 @@ export default function ProgressTracker() {
                                 boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                             }}
                         >
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
                                 <div>
                                     <div style={{ fontSize: '14px', fontWeight: '800', color: '#1a1a18' }}>
                                         All Modules Taken
@@ -560,48 +632,56 @@ export default function ProgressTracker() {
                                         Catgorize your taken modules into the degree requirements that it fulfils!
                                     </div>
                                     <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
-                                        Drag module cards between sections below.
+                                        Drag and drop modules into the respective major/minor baskets! Double-counting is permitted.
                                     </div>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={addTakenSection}
-                                    style={{
-                                        padding: '8px 12px',
-                                        borderRadius: '999px',
-                                        border: '1px solid rgba(24, 95, 165, 0.24)',
-                                        backgroundColor: '#E6F1FB',
-                                        color: '#185FA5',
-                                        fontSize: '12px',
-                                        fontWeight: '700',
-                                        cursor: 'pointer',
-                                    }}
-                                >
-                                    + Add section
-                                </button>
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                    <button
+                                        type="button"
+                                        onClick={addTakenSection}
+                                        style={{
+                                            padding: '8px 12px',
+                                            borderRadius: '999px',
+                                            border: '1px solid rgba(24, 95, 165, 0.24)',
+                                            backgroundColor: '#E6F1FB',
+                                            color: '#185FA5',
+                                            fontSize: '12px',
+                                            fontWeight: '700',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        + Add New Major/Minor Basket
+                                    </button>
+                                </div>
                             </div>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                {takenSections.map((section, sectionIndex) => {
+                                {takenSections.map((section) => {
                                     const sectionModules = section.moduleCodes ?? [];
+                                    const isMaster = section.kind === 'all';
 
                                     return (
                                         <div
                                             key={section.id}
                                             onDragOver={(event) => {
+                                                if (isMaster) {
+                                                    return;
+                                                }
                                                 event.preventDefault();
                                                 event.dataTransfer.dropEffect = 'move';
                                             }}
                                             onDrop={(event) => {
+                                                if (isMaster) {
+                                                    return;
+                                                }
                                                 event.preventDefault();
                                                 const moduleCode = event.dataTransfer.getData('text/plain');
-                                                const sourceSectionId = event.dataTransfer.getData('application/x-section-id');
-                                                if (moduleCode && sourceSectionId) {
-                                                    moveTakenModule(moduleCode, sourceSectionId, section.id);
+                                                if (moduleCode) {
+                                                    addModuleToSection(moduleCode, section.id);
                                                 }
                                             }}
                                             style={{
-                                                border: '1px solid rgba(0,0,0,0.14)',
+                                                border: isMaster ? 'none' : '1px solid rgba(0,0,0,0.14)',
                                                 borderRadius: '14px',
                                                 padding: '12px',
                                                 backgroundColor: '#FCFCFB',
@@ -612,7 +692,8 @@ export default function ProgressTracker() {
                                                     type="text"
                                                     value={section.title}
                                                     onChange={(event) => updateSectionTitle(section.id, event.target.value)}
-                                                    placeholder={sectionIndex === 0 ? 'All modules taken' : FUTURE_SECTION_PLACEHOLDER}
+                                                    placeholder="Untitled section"
+                                                    readOnly={isMaster}
                                                     style={{
                                                         width: '100%',
                                                         border: 'none',
@@ -628,7 +709,7 @@ export default function ProgressTracker() {
                                                 <span style={{ fontSize: '11px', fontWeight: '700', color: '#6b7280', whiteSpace: 'nowrap' }}>
                                                     {sectionModules.length} modules
                                                 </span>
-                                                {sectionIndex > 0 ? (
+                                                {!isMaster ? (
                                                     <button
                                                         type="button"
                                                         onClick={() => deleteTakenSection(section.id)}
@@ -660,24 +741,81 @@ export default function ProgressTracker() {
                                                         textAlign: 'center',
                                                     }}
                                                 >
-                                                    Drop modules here.
+                                                    {isMaster ? 'No graded modules yet.' : 'Drop modules here.'}
                                                 </div>
                                             ) : (
                                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                                                    {sectionModules.map((moduleCode) => (
-                                                        <ModuleButton
-                                                            key={`${section.id}-${moduleCode}`}
-                                                            moduleCode={moduleCode}
-                                                            isSelected={true}
-                                                            moduleTreeState={moduleTreeState}
-                                                            compact
-                                                            draggable
-                                                            onDragStart={(event) => {
-                                                                event.dataTransfer.setData('text/plain', moduleCode);
-                                                                event.dataTransfer.setData('application/x-section-id', section.id);
-                                                            }}
-                                                        />
-                                                    ))}
+                                                    {sectionModules.map((moduleCode) => {
+                                                        const memberships = codeSectionMembership.get(moduleCode) ?? [];
+
+                                                        return (
+                                                            <div key={`${section.id}-${moduleCode}`} style={{ position: 'relative' }}>
+                                                                <ModuleButton
+                                                                    moduleCode={moduleCode}
+                                                                    isSelected={true}
+                                                                    moduleTreeState={moduleTreeState}
+                                                                    compact
+                                                                    draggable
+                                                                    showTooltip={false}
+                                                                    onDragStart={(event) => {
+                                                                        event.dataTransfer.setData('text/plain', moduleCode);
+                                                                    }}
+                                                                />
+                                                                {memberships.length > 1 ? (
+                                                                    <span
+                                                                        title={`Counted in: ${memberships.map((entry) => entry.title).join(', ')}`}
+                                                                        style={{
+                                                                            position: 'absolute',
+                                                                            top: '-6px',
+                                                                            right: '-6px',
+                                                                            minWidth: '16px',
+                                                                            height: '16px',
+                                                                            borderRadius: '999px',
+                                                                            backgroundColor: '#F59E0B',
+                                                                            color: '#fff',
+                                                                            fontSize: '9px',
+                                                                            fontWeight: '800',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'center',
+                                                                            padding: '0 3px',
+                                                                            boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                                                                        }}
+                                                                    >
+                                                                        {memberships.length}
+                                                                    </span>
+                                                                ) : null}
+                                                                {!isMaster ? (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => removeModuleFromSection(moduleCode, section.id)}
+                                                                        title="Remove from this section"
+                                                                        style={{
+                                                                            position: 'absolute',
+                                                                            top: '-6px',
+                                                                            left: '-6px',
+                                                                            width: '16px',
+                                                                            height: '16px',
+                                                                            borderRadius: '999px',
+                                                                            backgroundColor: '#fff',
+                                                                            border: '1px solid rgba(0,0,0,0.16)',
+                                                                            color: '#6b7280',
+                                                                            fontSize: '10px',
+                                                                            fontWeight: '800',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'center',
+                                                                            cursor: 'pointer',
+                                                                            lineHeight: 1,
+                                                                            padding: 0,
+                                                                        }}
+                                                                    >
+                                                                        ×
+                                                                    </button>
+                                                                ) : null}
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
                                             )}
                                         </div>
@@ -685,6 +823,17 @@ export default function ProgressTracker() {
                                 })}
                             </div>
                         </section>
+
+                                <div
+                                    onClick={() => navigate('/profilePage')}
+                                    className="mt-2 bg-white rounded-2xl border border-gray-200 px-7 py-5 text-center cursor-pointer hover:border-[#2564F8] transition"
+                                >
+                                    <p className="text-sm font-semibold text-gray-700">
+                                        Don't see all the modules you've taken? <span className="text-[#2564F8]">Add them here →</span>
+                                    </p>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             </main>

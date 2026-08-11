@@ -45,7 +45,7 @@ export default function ModTreeProgressBar({ completed = 0, total = 0 }) {
                         width: `${percentage}%`,
                         height: '100%',
                         borderRadius: '999px',
-                        background: 'linear-gradient(90deg, #185FA5 0%, #1D9E75 100%)',
+                        backgroundColor: '#93C5FD',
                         transition: 'width 0.25s ease',
                     }}
                 />

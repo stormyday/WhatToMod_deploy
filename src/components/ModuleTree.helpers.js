@@ -197,11 +197,24 @@ export function normalizeSavedAcadsPlannerState(savedState) {
     return normalizePlannerModules(savedState.plannerModules ?? savedState);
 }
 
+// Maps a pillar's row id to `true` for a manual check-off, marking it
+// fulfilled independent of whether any of its listed options are selected.
+export function normalizeManualPillarOverrides(overrides) {
+    if (!overrides || typeof overrides !== 'object') {
+        return {};
+    }
+
+    return Object.fromEntries(
+        Object.entries(overrides).filter(([pillarId, value]) => typeof pillarId === 'string' && pillarId.trim() && value === true)
+    );
+}
+
 export function buildPersistedModTreeState({
     selectedMajor,
     selectedMods,
     customModules,
     plannerModules,
+    manualPillarOverrides,
     previousState = {},
 }) {
     return {
@@ -214,6 +227,7 @@ export function buildPersistedModTreeState({
             ? customModules.map(normalizeCustomModuleRecord).filter(Boolean)
             : [],
         plannerModules: normalizePlannerModules(plannerModules),
+        manualPillarOverrides: normalizeManualPillarOverrides(manualPillarOverrides),
     };
 }
 
@@ -234,5 +248,6 @@ export function normalizeSavedModTreeState(savedState) {
             ? savedState.customModules.map(normalizeCustomModuleRecord).filter(Boolean)
             : [],
         plannerModules: normalizePlannerModules(savedState.plannerModules),
+        manualPillarOverrides: normalizeManualPillarOverrides(savedState.manualPillarOverrides),
     };
 }

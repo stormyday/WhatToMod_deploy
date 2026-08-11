@@ -35,6 +35,8 @@ const selectStyles = {
     cursor: 'pointer',
   }),
   indicatorSeparator: () => ({ display: 'none' }),
+  dropdownIndicator: (base) => ({ ...base, padding: '4px' }),
+  clearIndicator: (base) => ({ ...base, padding: '4px' }),
 };
 
 function FieldLabel({ children, optional }) {
@@ -303,7 +305,7 @@ export default function ProfilePage() {
                     onChange={(selected) => handleGradeModuleSelect(index, selected)}
                   />
                 </div>
-                <div className="w-24 shrink-0">
+                <div className="w-32 shrink-0">
                   <Select
                     options={SEMESTER_OPTIONS}
                     styles={selectStyles}
@@ -368,6 +370,15 @@ export default function ProfilePage() {
         >
           {saving ? "Saving..." : "Save Profile"}
         </button>
+
+        <div
+          onClick={() => navigate('/gpaCalculator')}
+          className="mt-6 bg-white rounded-2xl border border-gray-200 px-7 py-5 text-center cursor-pointer hover:border-[#2564F8] transition"
+        >
+          <p className="text-sm font-semibold text-gray-700">
+            Wanna see your GPA? <span className="text-[#2564F8]">GPA Calculator →</span>
+          </p>
+        </div>
       </main>
     </div>
   );

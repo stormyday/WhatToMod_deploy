@@ -11,6 +11,7 @@ import {
     getModuleDisplayLevel,
     normalizeCaseGRow,
     normalizeCustomModuleRecord,
+    normalizeManualPillarOverrides,
     normalizePlannerModules,
     readTemporaryModTreeState,
     normalizeSavedAcadsPlannerState,
@@ -63,7 +64,10 @@ export default function ModuleTreePage() {
             .map(normalizeCustomModuleRecord)
             .filter(Boolean)
     );
- 
+    const [manualPillarOverrides, setManualPillarOverrides] = useState(
+        normalizeManualPillarOverrides(initialTransientState?.manualPillarOverrides)
+    );
+
     const [allModules, setAllModules] = useState([]);    // full list from Supabase
     const [caseGRows, setCaseGRows] = useState([]);
     const [moduleDatabase, setModuleDatabase] = useState({}); // flat id→module dict
@@ -125,6 +129,7 @@ export default function ModuleTreePage() {
             setCustomModules(Array.isArray(savedState.customModules)
                 ? savedState.customModules.map(normalizeCustomModuleRecord).filter(Boolean)
                 : []);
+            setManualPillarOverrides(normalizeManualPillarOverrides(savedState.manualPillarOverrides));
             setPlannerModules(normalizePlannerModules(savedState.plannerModules));
             setSavedModtreeState(savedState);
             if (typeof savedState.scrollPosition === 'number') {
@@ -174,6 +179,7 @@ export default function ModuleTreePage() {
                 setSelectedMajor(restoredState.selectedMajor);
                 setSelectedMods(restoredState.selectedMods);
                 setCustomModules(restoredState.customModules);
+                setManualPillarOverrides(restoredState.manualPillarOverrides);
                 setSavedModtreeState(restoredState);
             }
 
@@ -232,6 +238,25 @@ export default function ModuleTreePage() {
                 (semesterModules ?? []).filter((id) => id !== moduleCode)
             ])
         ));
+    };
+
+    const handleSetPillarOverride = (pillarId, checked) => {
+        if (!pillarId) {
+            return;
+        }
+
+        setManualPillarOverrides((current) => {
+            if (!checked) {
+                if (!(pillarId in current)) {
+                    return current;
+                }
+                const next = { ...current };
+                delete next[pillarId];
+                return next;
+            }
+
+            return { ...current, [pillarId]: true };
+        });
     };
 
     const plannerModuleIds = Object.values(plannerModules).flat();
@@ -326,6 +351,7 @@ export default function ModuleTreePage() {
             selectedMods,
             customModules,
             plannerModules,
+            manualPillarOverrides,
             previousState: savedModtreeState ?? {},
         });
         const nextAcadsPlannerState = normalizeSavedAcadsPlannerState({ plannerModules });
@@ -357,8 +383,8 @@ export default function ModuleTreePage() {
     };
 
     const moduleTreeState = useMemo(
-        () => ({ selectedMajor, selectedMods, customModules, plannerModules }),
-        [selectedMajor, selectedMods, customModules, plannerModules]
+        () => ({ selectedMajor, selectedMods, customModules, plannerModules, manualPillarOverrides }),
+        [selectedMajor, selectedMods, customModules, plannerModules, manualPillarOverrides]
     );
 
     useEffect(() => {
@@ -477,6 +503,8 @@ export default function ModuleTreePage() {
                                             onToggleModule={handleToggleModule}
                                             customModules={customModules}
                                             onRemoveCustomModule={handleRemoveCustomModule}
+                                            manualPillarOverrides={manualPillarOverrides}
+                                            onSetPillarOverride={handleSetPillarOverride}
                                         />
                                         <CaseGRequirements row={caseGRow} selectedMajor={selectedMajor} />
                                     </>

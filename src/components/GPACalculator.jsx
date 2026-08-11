@@ -47,6 +47,8 @@ const selectStyles = {
     cursor: 'pointer',
   }),
   indicatorSeparator: () => ({ display: 'none' }),
+  dropdownIndicator: (base) => ({ ...base, padding: '4px' }),
+  clearIndicator: (base) => ({ ...base, padding: '4px' }),
 };
 
 export default function GpaCalculator() {
@@ -294,7 +296,7 @@ export default function GpaCalculator() {
           )}
 
           {rows.length > 0 && (
-            <div className="grid grid-cols-[1fr_5.5rem_5rem_6.5rem_3.5rem_2rem] gap-3 px-1 mb-2">
+            <div className="grid grid-cols-[1fr_7.5rem_5rem_6.5rem_3.5rem_2rem] gap-3 px-1 mb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Module</span>
               <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Sem</span>
               <span className="text-xs font-bold tracking-wider text-gray-400">MCs</span>
@@ -306,7 +308,7 @@ export default function GpaCalculator() {
 
           <div className="space-y-3">
             {rows.map((row, index) => (
-              <div key={index} className="grid grid-cols-[1fr_5.5rem_5rem_6.5rem_3.5rem_2rem] gap-3 items-center">
+              <div key={index} className="grid grid-cols-[1fr_7.5rem_5rem_6.5rem_3.5rem_2rem] gap-3 items-center">
                 <Select
                   options={moduleOptions}
                   styles={selectStyles}

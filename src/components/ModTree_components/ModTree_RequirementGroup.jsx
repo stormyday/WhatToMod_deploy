@@ -100,6 +100,9 @@ function RequirementsList({ requirements = [] }) {
 export default function RequirementGroup({
     nodeData,
     selectedMods,
+    takenMods = [],
+    manualPillarOverrides = {},
+    onSetPillarOverride,
     selectedMajor,
     moduleTreeState,
     onToggleModule,
@@ -177,6 +180,9 @@ export default function RequirementGroup({
                             key={pillar.id}
                             pillarModule={pillar}
                             selectedMods={selectedMods}
+                            takenMods={takenMods}
+                            manualOverride={manualPillarOverrides[pillar.id]}
+                            onSetPillarOverride={onSetPillarOverride}
                             selectedMajor={selectedMajor}
                             moduleTreeState={moduleTreeState}
                             onToggleModule={onToggleModule}

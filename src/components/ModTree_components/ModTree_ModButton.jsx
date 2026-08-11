@@ -18,6 +18,8 @@ export default function ModuleButton({
     draggable = false,
     onDragStart,
     onDragEnd,
+    showTooltip = true,
+    isTaken = false,
 }) {
     const [isHovered, setIsHovered] = useState(false)
     const [sentiment, setSentiment] = useState(null)
@@ -51,8 +53,12 @@ export default function ModuleButton({
         }
     }
 
-    const handleMouseEnter = () => { clearHoverTimeout(); setIsHovered(true); }
+    const handleMouseEnter = () => {
+        if (!showTooltip) return
+        clearHoverTimeout(); setIsHovered(true);
+    }
     const handleMouseLeave = () => {
+        if (!showTooltip) return
         clearHoverTimeout()
         hoverTimeout.current = window.setTimeout(() => {
             setIsHovered(false)
@@ -187,7 +193,7 @@ export default function ModuleButton({
                     onClick={() => onToggle?.()}
                     style={{
                         width: fullWidth ? '100%' : 'auto',
-                        padding: compact ? '8px 12px' : '10px 16px', borderRadius: '10px', cursor: 'pointer',
+                        padding: compact ? '8px 12px' : '10px 16px', borderRadius: '10px',
                         backgroundColor: bgColor,
                         color: textColor,
                         border: `2px solid ${borderColor}`,
@@ -201,6 +207,30 @@ export default function ModuleButton({
                     }}>
                     {displayCode}
                 </button>
+                {isTaken ? (
+                    <span
+                        title="You've taken this module (from GPA Calculator / Profile)"
+                        style={{
+                            position: 'absolute',
+                            top: '-6px',
+                            right: '-6px',
+                            width: '16px',
+                            height: '16px',
+                            borderRadius: '999px',
+                            backgroundColor: '#2564F8',
+                            color: '#fff',
+                            fontSize: '10px',
+                            fontWeight: '800',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                            pointerEvents: 'none',
+                        }}
+                    >
+                        ✓
+                    </span>
+                ) : null}
             </div>
             {isHovered && tooltipPosition && typeof document !== 'undefined' ? createPortal(
                 <div
