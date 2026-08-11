@@ -58,9 +58,11 @@ function getLayerCompletionState(layer, selectedMods) {
 export default function ModuleTree({
     modulesByLvl,
     selectedMods,
+    pillarSelections,
     moduleTreeState,
     onToggleModule,
     customModules = [],
+    onRemoveCustomModule,
     customModuleEmptyMessage = 'Search above to add modules here.',
     takenMods = [],
 }) {
@@ -136,7 +138,7 @@ export default function ModuleTree({
                         const isSelected = selectedMods.includes(moduleCode);
 
                         return (
-                            <div key={moduleCode} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '34px', width: '100%' }}>
+                            <div key={moduleCode} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px', minHeight: '34px', width: '100%' }}>
                                 <ModuleButton
                                     moduleCode={moduleCode}
                                     isSelected={isSelected}
@@ -145,6 +147,15 @@ export default function ModuleTree({
                                     compact
                                     onToggle={() => onToggleModule(moduleCode)}
                                 />
+                                <button
+                                    type="button"
+                                    aria-label={`Remove ${moduleCode}`}
+                                    title={`Remove ${moduleCode}`}
+                                    onClick={() => onRemoveCustomModule?.(moduleCode)}
+                                    style={{ border: 0, borderRadius: '50%', width: '20px', height: '20px', padding: 0, backgroundColor: '#e5e7eb', color: '#4b5563', cursor: 'pointer', fontSize: '16px', lineHeight: '10px'}}
+                                >
+                                    ×
+                                </button>
                             </div>
                         );
                     })
@@ -185,6 +196,7 @@ export default function ModuleTree({
                                             <PillarDropdown
                                                 pillarModule={modInTree}
                                                 selectedMods={selectedMods}
+                                                pillarSelections={pillarSelections}
                                                 takenMods={takenMods}
                                                 moduleTreeState={moduleTreeState}
                                                 onToggleModule={onToggleModule}
@@ -200,6 +212,7 @@ export default function ModuleTree({
                                             <RequirementGroup
                                                 nodeData={modInTree}
                                                 selectedMods={selectedMods}
+                                                pillarSelections={pillarSelections}
                                                 takenMods={takenMods}
                                                 moduleTreeState={moduleTreeState}
                                                 onToggleModule={onToggleModule}
@@ -240,6 +253,7 @@ export default function ModuleTree({
                                             <Level4000Pathway
                                                 nodeData={modInTree}
                                                 selectedMods={selectedMods}
+                                                pillarSelections={pillarSelections}
                                                 moduleTreeState={moduleTreeState}
                                                 onToggleModule={onToggleModule}
                                             />

@@ -197,9 +197,29 @@ export function normalizeSavedAcadsPlannerState(savedState) {
     return normalizePlannerModules(savedState.plannerModules ?? savedState);
 }
 
+export function normalizePillarSelections(pillarSelections, selectedMods = []) {
+    if (!pillarSelections || typeof pillarSelections !== 'object' || Array.isArray(pillarSelections)) {
+        return {};
+    }
+
+    const selectedModuleCodes = new Set(
+        Array.isArray(selectedMods) ? selectedMods.map(normalizeModuleCode).filter(Boolean) : []
+    );
+
+    return Object.fromEntries(
+        Object.entries(pillarSelections).flatMap(([moduleCode, pillarId]) => {
+            const normalizedModuleCode = normalizeModuleCode(moduleCode);
+            return selectedModuleCodes.has(normalizedModuleCode) && typeof pillarId === 'string' && pillarId
+                ? [[normalizedModuleCode, pillarId]]
+                : [];
+        })
+    );
+}
+
 export function buildPersistedModTreeState({
     selectedMajor,
     selectedMods,
+    pillarSelections,
     customModules,
     plannerModules,
     previousState = {},
@@ -210,6 +230,7 @@ export function buildPersistedModTreeState({
         selectedMods: Array.isArray(selectedMods)
             ? selectedMods.map(normalizeModuleCode).filter(Boolean)
             : [],
+        pillarSelections: normalizePillarSelections(pillarSelections, selectedMods),
         customModules: Array.isArray(customModules)
             ? customModules.map(normalizeCustomModuleRecord).filter(Boolean)
             : [],
@@ -222,14 +243,17 @@ export function normalizeSavedModTreeState(savedState) {
         return null;
     }
 
+    const selectedMods = Array.isArray(savedState.selectedMods)
+        ? savedState.selectedMods.map(normalizeModuleCode).filter(Boolean)
+        : [];
+
     return {
         ...savedState,
         selectedMajor: typeof savedState.selectedMajor === 'string' && savedState.selectedMajor.trim()
             ? savedState.selectedMajor
             : 'Empty-Major',
-        selectedMods: Array.isArray(savedState.selectedMods)
-            ? savedState.selectedMods.map(normalizeModuleCode).filter(Boolean)
-            : [],
+        selectedMods,
+        pillarSelections: normalizePillarSelections(savedState.pillarSelections, selectedMods),
         customModules: Array.isArray(savedState.customModules)
             ? savedState.customModules.map(normalizeCustomModuleRecord).filter(Boolean)
             : [],

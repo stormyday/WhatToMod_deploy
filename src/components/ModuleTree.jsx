@@ -11,6 +11,7 @@ import {
     getModuleDisplayLevel,
     normalizeCaseGRow,
     normalizeCustomModuleRecord,
+    normalizePillarSelections,
     normalizePlannerModules,
     readTemporaryModTreeState,
     normalizeSavedAcadsPlannerState,
@@ -59,6 +60,9 @@ export default function ModuleTreePage() {
     );
     const [selectedMods, setSelectedMods] = useState(
         (initialTransientState?.selectedMods ?? []).map(normalizeModuleCode).filter(Boolean)
+    );
+    const [pillarSelections, setPillarSelections] = useState(
+        () => initialTransientState?.pillarSelections ?? {}
     );
     const [customModules, setCustomModules] = useState(
         (initialTransientState?.customModules ?? [])
@@ -124,6 +128,7 @@ export default function ModuleTreePage() {
             setSelectedMods(Array.isArray(savedState.selectedMods)
                 ? savedState.selectedMods.map(normalizeModuleCode).filter(Boolean)
                 : []);
+            setPillarSelections(savedState.pillarSelections ?? {});
             setCustomModules(Array.isArray(savedState.customModules)
                 ? savedState.customModules.map(normalizeCustomModuleRecord).filter(Boolean)
                 : []);
@@ -175,6 +180,7 @@ export default function ModuleTreePage() {
             if (restoredState) {
                 setSelectedMajor(restoredState.selectedMajor);
                 setSelectedMods(restoredState.selectedMods);
+                setPillarSelections(restoredState.pillarSelections);
                 setCustomModules(restoredState.customModules);
                 setSavedModtreeState(restoredState);
             }
@@ -192,17 +198,24 @@ export default function ModuleTreePage() {
         };
     }, [initialTransientState, session?.user?.id]);
  
-    const handleToggleModule = (modId) => {
+    const handleToggleModule = (modId, pillarId) => {
         const moduleCode = normalizeModuleCode(modId);
+        const isSelected = selectedMods.includes(moduleCode);
         setSelectedMods(current =>
             current.includes(moduleCode)
                 ? current.filter(id => id !== moduleCode)
                 : [...current, moduleCode]
         );
+        setPillarSelections((current) => {
+            const next = { ...current };
+            delete next[moduleCode];
+            return !isSelected && pillarId ? { ...next, [moduleCode]: pillarId } : next;
+        });
     };
- 
+
     const handleClearBasketModules = () => {
         setSelectedMods(current => current.filter((id) => plannerModuleIds.includes(id)));
+        setPillarSelections((current) => normalizePillarSelections(current, plannerModuleIds));
     };
 
     const handleAddCustomModule = (module) => {
@@ -228,6 +241,7 @@ export default function ModuleTreePage() {
 
         setCustomModules(current => current.filter((entry) => entry.moduleCode !== moduleCode));
         setSelectedMods(current => current.filter((id) => id !== moduleCode));
+        setPillarSelections((current) => normalizePillarSelections(current, selectedMods.filter((id) => id !== moduleCode)));
         setPlannerModules(current => Object.fromEntries(
             Object.entries(current).map(([semester, semesterModules]) => [
                 semester,
@@ -326,6 +340,7 @@ export default function ModuleTreePage() {
         const nextModtreeState = buildPersistedModTreeState({
             selectedMajor,
             selectedMods,
+            pillarSelections,
             customModules,
             plannerModules,
             previousState: savedModtreeState ?? {},
@@ -359,8 +374,8 @@ export default function ModuleTreePage() {
     };
 
     const moduleTreeState = useMemo(
-        () => ({ selectedMajor, selectedMods, customModules, plannerModules }),
-        [selectedMajor, selectedMods, customModules, plannerModules]
+        () => ({ selectedMajor, selectedMods, pillarSelections, customModules, plannerModules }),
+        [selectedMajor, selectedMods, pillarSelections, customModules, plannerModules]
     );
 
     useEffect(() => {
@@ -483,6 +498,7 @@ export default function ModuleTreePage() {
                                         <ModuleTree
                                             modulesByLvl={modulesByLvl}
                                             selectedMods={selectedMods}
+                                            pillarSelections={pillarSelections}
                                             selectedMajor={selectedMajor}
                                             moduleTreeState={moduleTreeState}
                                             onToggleModule={handleToggleModule}

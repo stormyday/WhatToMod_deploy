@@ -195,7 +195,7 @@ function renderModuleNode(node, selectedMods, moduleTreeState, onToggleModule) {
     );
 }
 
-function renderPillarNode(node, selectedMods, moduleTreeState, onToggleModule) {
+function renderPillarNode(node, selectedMods, pillarSelections, moduleTreeState, onToggleModule) {
     const pillarShape = buildPillarDropdownShape(node);
     const hasValidChildren = Array.isArray(node.childrenGroup?.nodes) && node.childrenGroup.nodes.length > 0;
 
@@ -237,6 +237,7 @@ function renderPillarNode(node, selectedMods, moduleTreeState, onToggleModule) {
                 <PillarDropdown
                     pillarModule={pillarShape}
                     selectedMods={selectedMods}
+                    pillarSelections={pillarSelections}
                     moduleTreeState={moduleTreeState}
                     onToggleModule={onToggleModule}
                 />
@@ -253,7 +254,7 @@ function renderPillarNode(node, selectedMods, moduleTreeState, onToggleModule) {
     );
 }
 
-function renderGroupNode(analysis, moduleId, selectedMods, moduleTreeState, onToggleModule, setActiveTracks, renderNode) {
+function renderGroupNode(analysis, moduleId, selectedMods, pillarSelections, moduleTreeState, onToggleModule, setActiveTracks, renderNode) {
     if (!analysis || analysis.kind !== 'group') {
         if (analysis?.kind === 'empty') {
             return (
@@ -304,7 +305,7 @@ function renderGroupNode(analysis, moduleId, selectedMods, moduleTreeState, onTo
     if (analysis.groupType === 'pillar') {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', alignItems: 'center' }}>
-                {analysis.nodes.map((node) => renderPillarNode(node, selectedMods, moduleTreeState, onToggleModule))}
+                {analysis.nodes.map((node) => renderPillarNode(node, selectedMods, pillarSelections, moduleTreeState, onToggleModule))}
             </div>
         );
     }
@@ -325,7 +326,7 @@ function renderGroupNode(analysis, moduleId, selectedMods, moduleTreeState, onTo
     );
 }
 
-export default function Level4000Pathway({ nodeData, selectedMods, moduleTreeState, onToggleModule }) {
+export default function Level4000Pathway({ nodeData, selectedMods, pillarSelections, moduleTreeState, onToggleModule }) {
     const moduleId = nodeData?.id ?? null;
     const [activeTracks, setActiveTracks] = useState(() => getLevel4000ActiveTracks(moduleId));
 
@@ -363,7 +364,7 @@ export default function Level4000Pathway({ nodeData, selectedMods, moduleTreeSta
         }
 
         if (nodeAnalysis.type === 'pillar') {
-            return renderPillarNode(nodeAnalysis, selectedMods, moduleTreeState, onToggleModule);
+            return renderPillarNode(nodeAnalysis, selectedMods, pillarSelections, moduleTreeState, onToggleModule);
         }
 
         if (nodeAnalysis.type === 'pathway') {
@@ -378,7 +379,7 @@ export default function Level4000Pathway({ nodeData, selectedMods, moduleTreeSta
                     }}
                 >
                     {nodeAnalysis.childrenGroup?.kind === 'group' || nodeAnalysis.childrenGroup?.kind === 'mixed'
-                        ? renderGroupNode(nodeAnalysis.childrenGroup, moduleId, selectedMods, moduleTreeState, onToggleModule, setActiveTracks, renderNode)
+                        ? renderGroupNode(nodeAnalysis.childrenGroup, moduleId, selectedMods, pillarSelections, moduleTreeState, onToggleModule, setActiveTracks, renderNode)
                         : (
                             <AnalysisMessage
                                 title="No data available"
@@ -459,7 +460,7 @@ export default function Level4000Pathway({ nodeData, selectedMods, moduleTreeSta
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', width: '100%' }}>
-                {renderGroupNode(analysis, moduleId, selectedMods, moduleTreeState, onToggleModule, setActiveTracks, renderNode)}
+                {renderGroupNode(analysis, moduleId, selectedMods, pillarSelections, moduleTreeState, onToggleModule, setActiveTracks, renderNode)}
             </div>
         </div>
     );
