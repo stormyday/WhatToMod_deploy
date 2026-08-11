@@ -21,6 +21,7 @@ describe('ModuleTree helpers', () => {
     const persisted = buildPersistedModTreeState({
       selectedMajor: '',
       selectedMods: [' cs2100 ', null, 'CS1231S'],
+      pillarSelections: { CS2100: 'pillar-1', CS2040S: 'pillar-2' },
       customModules: [
         'cs9999',
         { moduleCode: ' cs2040s ', title: 'Data Structures' },
@@ -39,6 +40,7 @@ describe('ModuleTree helpers', () => {
       preserved: true,
       selectedMajor: '',
       selectedMods: ['cs2100', 'cs1231s'],
+      pillarSelections: { cs2100: 'pillar-1' },
       customModules: [
         { moduleCode: 'cs9999', title: 'CS9999', hasModTreeMetadata: false, source: 'fallback' },
         { moduleCode: 'cs2040s', title: 'Data Structures' },
@@ -58,11 +60,13 @@ describe('ModuleTree helpers', () => {
     expect(normalizeSavedModTreeState({
       selectedMajor: '  CS  ',
       selectedMods: [' cs2040s '],
+      pillarSelections: { CS2040S: 'pillar-1', CS2100: 'pillar-2' },
       customModules: ['cs2100'],
       plannerModules: { Y1S1: ['cs2100'] },
     })).toMatchObject({
       selectedMajor: '  CS  ',
       selectedMods: ['cs2040s'],
+      pillarSelections: { cs2040s: 'pillar-1' },
       customModules: [
         { moduleCode: 'cs2100', title: 'CS2100', hasModTreeMetadata: false, source: 'fallback' },
       ],
@@ -84,6 +88,7 @@ describe('ModuleTree helpers', () => {
     saveTemporaryModTreeState({
       selectedMajor: '  CS  ',
       selectedMods: [' CS2100 '],
+      pillarSelections: { CS2100: 'pillar-1' },
       customModules: ['cs9999'],
       plannerModules: { Y1S1: ['CS1231S'] },
       scrollPosition: 320,
@@ -93,6 +98,7 @@ describe('ModuleTree helpers', () => {
     expect(readTemporaryModTreeState()).toMatchObject({
       selectedMajor: '  CS  ',
       selectedMods: ['cs2100'],
+      pillarSelections: { cs2100: 'pillar-1' },
       customModules: [
         { moduleCode: 'cs9999', title: 'CS9999', hasModTreeMetadata: false, source: 'fallback' },
       ],

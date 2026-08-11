@@ -100,6 +100,7 @@ function RequirementsList({ requirements = [] }) {
 export default function RequirementGroup({
     nodeData,
     selectedMods,
+    pillarSelections,
     takenMods = [],
     selectedMajor,
     moduleTreeState,
@@ -178,6 +179,7 @@ export default function RequirementGroup({
                             key={pillar.id}
                             pillarModule={pillar}
                             selectedMods={selectedMods}
+                            pillarSelections={pillarSelections}
                             takenMods={takenMods}
                             selectedMajor={selectedMajor}
                             moduleTreeState={moduleTreeState}

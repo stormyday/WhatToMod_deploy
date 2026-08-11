@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import PillarDropdown from '../ModTree_PillarMod';
 
@@ -51,7 +51,7 @@ describe('PillarDropdown', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'CS1231S' }));
 
-    expect(onToggleModule).toHaveBeenCalledWith('CS1231S');
+    expect(onToggleModule).toHaveBeenCalledWith('CS1231S', 'pillar-1');
     expect(screen.queryByText('Select 1 Option:')).not.toBeInTheDocument();
   });
 
@@ -73,5 +73,54 @@ describe('PillarDropdown', () => {
     );
 
     expect(screen.getByRole('button', { name: /Discrete/i })).toBeInTheDocument();
+  });
+
+  it('shows a pillar-originated selection only in its source dropdown', () => {
+    const sharedOptions = [{ id: 'CS1101S', label: 'Foundations' }];
+
+    render(
+      <>
+        <PillarDropdown
+          pillarModule={{ id: 'pillar-1', label: 'Pillar One', options: sharedOptions }}
+          selectedMods={['CS1101S']}
+          pillarSelections={{ CS1101S: 'pillar-1' }}
+          moduleTreeState={{}}
+          onToggleModule={vi.fn()}
+        />
+        <PillarDropdown
+          pillarModule={{ id: 'pillar-2', label: 'Pillar Two', options: sharedOptions }}
+          selectedMods={['CS1101S']}
+          pillarSelections={{ CS1101S: 'pillar-1' }}
+          moduleTreeState={{}}
+          onToggleModule={vi.fn()}
+        />
+      </>
+    );
+
+    expect(screen.getByRole('button', { name: /Foundations/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Pillar Two/i })).toBeInTheDocument();
+  });
+
+  it('shows a standalone selection in every matching dropdown', () => {
+    const sharedOptions = [{ id: 'CS1101S', label: 'Foundations' }];
+
+    const { container } = render(
+      <>
+        <PillarDropdown
+          pillarModule={{ id: 'pillar-1', label: 'Pillar One', options: sharedOptions }}
+          selectedMods={['CS1101S']}
+          moduleTreeState={{}}
+          onToggleModule={vi.fn()}
+        />
+        <PillarDropdown
+          pillarModule={{ id: 'pillar-2', label: 'Pillar Two', options: sharedOptions }}
+          selectedMods={['CS1101S']}
+          moduleTreeState={{}}
+          onToggleModule={vi.fn()}
+        />
+      </>
+    );
+
+    expect(within(container).getAllByRole('button', { name: /Foundations/i })).toHaveLength(2);
   });
 });

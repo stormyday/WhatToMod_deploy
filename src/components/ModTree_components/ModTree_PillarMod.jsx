@@ -15,13 +15,17 @@ function chunkOptions(options, chunkSize) {
 export default function PillarDropdown({
     pillarModule,
     selectedMods,
+    pillarSelections = {},
     takenMods = [],
     moduleTreeState,
     onToggleModule,
 }) {
     const [isOpen, setIsOpen] = useState(false);
 
-    const selectedOption = pillarModule.options.find(opt => selectedMods.includes(opt.id));
+    const selectedOption = pillarModule.options.find((opt) =>
+        selectedMods.includes(opt.id)
+        && (!pillarSelections[opt.id] || pillarSelections[opt.id] === pillarModule.id)
+    );
     const optionColumns = chunkOptions(pillarModule.options, OPTIONS_PER_COLUMN);
 
     return (
@@ -110,7 +114,7 @@ export default function PillarDropdown({
                                             moduleTreeState={moduleTreeState}
                                             compact
                                             onToggle={() => {
-                                                onToggleModule(option.id);
+                                                onToggleModule(option.id, pillarModule.id);
                                                 setIsOpen(false); // Single-pick: close after selection
                                             }}
                                         />

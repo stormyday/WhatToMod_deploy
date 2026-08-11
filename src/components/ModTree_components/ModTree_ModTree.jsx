@@ -58,6 +58,7 @@ function getLayerCompletionState(layer, selectedMods) {
 export default function ModuleTree({
     modulesByLvl,
     selectedMods,
+    pillarSelections,
     moduleTreeState,
     onToggleModule,
     customModules = [],
@@ -195,6 +196,7 @@ export default function ModuleTree({
                                             <PillarDropdown
                                                 pillarModule={modInTree}
                                                 selectedMods={selectedMods}
+                                                pillarSelections={pillarSelections}
                                                 takenMods={takenMods}
                                                 moduleTreeState={moduleTreeState}
                                                 onToggleModule={onToggleModule}
@@ -210,6 +212,7 @@ export default function ModuleTree({
                                             <RequirementGroup
                                                 nodeData={modInTree}
                                                 selectedMods={selectedMods}
+                                                pillarSelections={pillarSelections}
                                                 takenMods={takenMods}
                                                 moduleTreeState={moduleTreeState}
                                                 onToggleModule={onToggleModule}
@@ -250,6 +253,7 @@ export default function ModuleTree({
                                             <Level4000Pathway
                                                 nodeData={modInTree}
                                                 selectedMods={selectedMods}
+                                                pillarSelections={pillarSelections}
                                                 moduleTreeState={moduleTreeState}
                                                 onToggleModule={onToggleModule}
                                             />
