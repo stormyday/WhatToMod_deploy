@@ -17,14 +17,7 @@ function isModuleSelected(moduleId, selectedMods) {
     return selectedMods.includes(moduleId);
 }
 
-function isPillarSatisfied(pillar, selectedMods, manualPillarOverrides) {
-    if (manualPillarOverrides?.[pillar.id]) {
-        return true;
-    }
-    return Boolean(pillar.options?.some(option => isModuleSelected(option.id, selectedMods)));
-}
-
-function getLayerCompletionState(layer, selectedMods, manualPillarOverrides = {}) {
+function getLayerCompletionState(layer, selectedMods) {
     const orGroupIds = [...new Set(layer.map(mod => mod.orGroupId).filter(Boolean))];
     const requirements = [];
 
@@ -32,7 +25,7 @@ function getLayerCompletionState(layer, selectedMods, manualPillarOverrides = {}
         const groupModules = layer.filter(mod => mod.orGroupId === groupId);
         const anySelected = groupModules.some((groupMod) =>
             groupMod.isPillar
-                ? isPillarSatisfied(groupMod, selectedMods, manualPillarOverrides)
+                ? groupMod.options?.some(option => isModuleSelected(option.id, selectedMods))
                 : isModuleSelected(groupMod.id, selectedMods)
         );
         requirements.push(anySelected);
@@ -40,12 +33,13 @@ function getLayerCompletionState(layer, selectedMods, manualPillarOverrides = {}
 
     layer.filter(mod => !mod.orGroupId).forEach((mod) => {
         if (mod.isPillar) {
-            requirements.push(isPillarSatisfied(mod, selectedMods, manualPillarOverrides));
+            requirements.push(Boolean(mod.options?.some(option => isModuleSelected(option.id, selectedMods))));
         } else if (mod.isRequirementGroup) {
             const pillars = Array.isArray(mod.RequirementsPillar) ? mod.RequirementsPillar : [];
             requirements.push(
                 pillars.length > 0
-                && pillars.every((pillar) => isPillarSatisfied(pillar, selectedMods, manualPillarOverrides))
+                && pillars.every((pillar) => Array.isArray(pillar.options)
+                    && pillar.options.some((option) => isModuleSelected(option.id, selectedMods)))
             );
         } else if (mod.isSingleModulePillar) {
             requirements.push(isModuleSelected(mod.id, selectedMods));
@@ -69,8 +63,6 @@ export default function ModuleTree({
     customModules = [],
     customModuleEmptyMessage = 'Search above to add modules here.',
     takenMods = [],
-    manualPillarOverrides = {},
-    onSetPillarOverride,
 }) {
     const level4000ActiveTracksVersion = useSyncExternalStore(
         subscribeLevel4000ActiveTracks,
@@ -165,7 +157,7 @@ export default function ModuleTree({
         <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'stretch', gap: '3px', width: '100%', overflowX: 'auto', overflowY: 'hidden', minWidth: '0' }}>
             {modulesByLvl.map((layer, layerIndex) => {
                 const renderedGroups = new Set();
-                const { layerComplete } = getLayerCompletionState(layer, selectedMods, manualPillarOverrides);
+                const { layerComplete } = getLayerCompletionState(layer, selectedMods);
 
                 return (
                     <div
@@ -194,8 +186,6 @@ export default function ModuleTree({
                                                 pillarModule={modInTree}
                                                 selectedMods={selectedMods}
                                                 takenMods={takenMods}
-                                                manualOverride={manualPillarOverrides[modInTree.id]}
-                                                onSetPillarOverride={onSetPillarOverride}
                                                 moduleTreeState={moduleTreeState}
                                                 onToggleModule={onToggleModule}
                                             />
@@ -211,8 +201,6 @@ export default function ModuleTree({
                                                 nodeData={modInTree}
                                                 selectedMods={selectedMods}
                                                 takenMods={takenMods}
-                                                manualPillarOverrides={manualPillarOverrides}
-                                                onSetPillarOverride={onSetPillarOverride}
                                                 moduleTreeState={moduleTreeState}
                                                 onToggleModule={onToggleModule}
                                             />

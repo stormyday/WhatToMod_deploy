@@ -98,9 +98,6 @@ function normalizeSavedModTreeState(savedState) {
             ? savedState.customModules.map(normalizeCustomModuleRecord).filter(Boolean)
             : [],
         takenSections: Array.isArray(savedState.takenSections) ? savedState.takenSections : null,
-        manualPillarOverrides: savedState.manualPillarOverrides && typeof savedState.manualPillarOverrides === 'object'
-            ? Object.fromEntries(Object.entries(savedState.manualPillarOverrides).filter(([, value]) => value === true))
-            : {},
     };
 }
 
@@ -221,7 +218,6 @@ export default function ProgressTracker() {
     const [selectedMods, setSelectedMods] = useState([]);
     const [customModules, setCustomModules] = useState([]);
     const [takenModuleCodes, setTakenModuleCodes] = useState([]);
-    const [manualPillarOverrides, setManualPillarOverrides] = useState({});
     const [takenSections, setTakenSections] = useState(createDefaultTakenSections([]));
     const [hasCompletedModTree, setHasCompletedModTree] = useState(true);
     const [trackerReady, setTrackerReady] = useState(false);
@@ -305,7 +301,6 @@ export default function ProgressTracker() {
             setSelectedMajor(effectiveMajor);
             setSelectedMods(restoredState?.selectedMods ?? []);
             setCustomModules(restoredState?.customModules ?? []);
-            setManualPillarOverrides(restoredState?.manualPillarOverrides ?? {});
             setTakenModuleCodes(profileTakenCodes);
             setTakenSections(syncedSections);
             setHasCompletedModTree(hasCompletedModTree);
@@ -599,7 +594,6 @@ export default function ProgressTracker() {
                                         onToggleModule={() => {}}
                                         customModules={customModules}
                                         customModuleEmptyMessage="No custom modules saved."
-                                        manualPillarOverrides={manualPillarOverrides}
                                     />
                                 )}
 

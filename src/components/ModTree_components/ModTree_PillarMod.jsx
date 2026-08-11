@@ -16,8 +16,6 @@ export default function PillarDropdown({
     pillarModule,
     selectedMods,
     takenMods = [],
-    manualOverride,
-    onSetPillarOverride,
     moduleTreeState,
     onToggleModule,
 }) {
@@ -25,8 +23,6 @@ export default function PillarDropdown({
 
     const selectedOption = pillarModule.options.find(opt => selectedMods.includes(opt.id));
     const optionColumns = chunkOptions(pillarModule.options, OPTIONS_PER_COLUMN);
-    const isEditable = typeof onSetPillarOverride === 'function';
-    const isManuallySatisfied = Boolean(manualOverride) && !selectedOption;
 
     return (
         <div
@@ -47,10 +43,10 @@ export default function PillarDropdown({
                     padding: '8px 12px',
                     borderRadius: '10px',
                     cursor: 'pointer',
-                    backgroundColor: (selectedOption || isManuallySatisfied) ? '#E1F5EE' : '#F7F6F2',
-                    color: (selectedOption || isManuallySatisfied) ? '#1D9E75' : '#5F5E5A',
+                    backgroundColor: selectedOption ? '#E1F5EE' : '#F7F6F2',
+                    color: selectedOption ? '#1D9E75' : '#5F5E5A',
                     fontWeight: '600',
-                    border: `1px solid ${(selectedOption || isManuallySatisfied) ? '#1D9E75' : 'rgba(0,0,0,0.1)'}`,
+                    border: `1px solid ${selectedOption ? '#1D9E75' : 'rgba(0,0,0,0.1)'}`,
                     width: '100%',
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -62,33 +58,6 @@ export default function PillarDropdown({
                 <span>{selectedOption ? selectedOption.label : pillarModule.label}</span>
                 <span>{isOpen ? '▲' : '▼'}</span>
             </button>
-
-            {isEditable ? (
-                <label
-                    style={{
-                        marginTop: '6px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '5px',
-                        fontSize: '10px',
-                        color: '#5F5E5A',
-                        cursor: 'pointer',
-                    }}
-                >
-                    <input
-                        type="checkbox"
-                        checked={Boolean(manualOverride)}
-                        onChange={(event) => onSetPillarOverride(pillarModule.id, event.target.checked ? true : null)}
-                        style={{ width: '12px', height: '12px', cursor: 'pointer' }}
-                    />
-                    Mark as fulfilled
-                </label>
-            ) : isManuallySatisfied ? (
-                <div style={{ marginTop: '6px', fontSize: '10px', color: '#1D9E75', fontWeight: '600' }}>
-                    ✓ Marked fulfilled
-                </div>
-            ) : null}
 
             {/* Option list — auto-closes after a selection (single-pick UX) */}
             {isOpen && (
