@@ -1,5 +1,6 @@
 import { createContext, useEffect, useState, useContext } from "react";
 import { supabase } from "../supabaseClient";
+import { clearTemporaryModTreeState } from "../components/ModuleTree.helpers";
 
 const AuthContext = createContext();
 
@@ -14,7 +15,13 @@ export const AuthContextProvider = ({ children }) => {
         });
 
         // 2. Listen for auth changes (sign in, sign out, etc.)
-        const { data: { subscription: listener } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription: listener } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === "SIGNED_OUT") {
+                // sessionStorage's ModTree draft cache isn't scoped per-user, so it must be
+                // cleared here — otherwise the next account to sign in inherits the previous
+                // account's unsaved major/modules/customModules for the rest of the tab session.
+                clearTemporaryModTreeState();
+            }
             setSession(session);
             setLoading(false);
         });

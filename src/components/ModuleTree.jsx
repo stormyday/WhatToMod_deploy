@@ -213,6 +213,25 @@ export default function ModuleTreePage() {
         });
     };
 
+    const handleMajorChange = (newMajor) => {
+        const newFilteredModules = allModules.filter((mod) => mod.majors && mod.majors.includes(newMajor));
+        const treeDatabase = buildDatabase(newFilteredModules);
+        const validCodes = new Set([
+            ...Object.keys(treeDatabase),
+            ...customModules.map((module) => module.moduleCode),
+        ]);
+
+        setSelectedMajor(newMajor);
+        setSelectedMods((current) => current.filter((code) => validCodes.has(code)));
+        setPillarSelections((current) => normalizePillarSelections(current, [...validCodes]));
+        setPlannerModules((current) => Object.fromEntries(
+            Object.entries(current).map(([semester, semesterModules]) => [
+                semester,
+                (semesterModules ?? []).filter((code) => validCodes.has(code)),
+            ])
+        ));
+    };
+
     const handleClearBasketModules = () => {
         setSelectedMods(current => current.filter((id) => plannerModuleIds.includes(id)));
         setPillarSelections((current) => normalizePillarSelections(current, plannerModuleIds));
@@ -337,9 +356,17 @@ export default function ModuleTreePage() {
             return;
         }
 
+        const filteredModulesForSave = allModules.filter((mod) => mod.majors && mod.majors.includes(selectedMajor));
+        const treeDatabase = buildDatabase(filteredModulesForSave);
+        const currentTreeModuleCodes = new Set([
+            ...Object.keys(treeDatabase),
+            ...customModules.map((module) => module.moduleCode),
+        ]);
+        const prunedSelectedMods = selectedMods.filter((code) => currentTreeModuleCodes.has(code));
+
         const nextModtreeState = buildPersistedModTreeState({
             selectedMajor,
-            selectedMods,
+            selectedMods: prunedSelectedMods,
             pillarSelections,
             customModules,
             plannerModules,
@@ -355,12 +382,12 @@ export default function ModuleTreePage() {
         const persistedSelectedMods = Array.isArray(persistedProfile?.modtree_state?.selectedMods)
             ? persistedProfile.modtree_state.selectedMods.map(normalizeModuleCode).filter(Boolean)
             : [];
-        const deselectedMods = persistedSelectedMods.filter((code) => !selectedMods.includes(code));
+        const deselectedMods = persistedSelectedMods.filter((code) => !prunedSelectedMods.includes(code));
 
         let savedRecords;
         try {
             [savedRecords] = await Promise.all([
-                addBlankModuleRecords(user.id, selectedMods),
+                addBlankModuleRecords(user.id, prunedSelectedMods),
                 removeStaleBlankModuleRecords(user.id, deselectedMods),
             ]);
         } catch (recordError) {
@@ -380,6 +407,7 @@ export default function ModuleTreePage() {
             console.error('Error saving selected modules to profile:', saveError);
         } else {
             setSavedModtreeState(nextModtreeState);
+            setSelectedMods(prunedSelectedMods);
         }
 
         setSavingProfile(false);
@@ -483,7 +511,7 @@ export default function ModuleTreePage() {
             <GradeReccoProvider moduleCodes={gradeRecommendationModuleCodes} userId={session?.user?.id} enabled={Boolean(session?.user?.id)}>
             <main style={{ flex: 1, width: '100%' }}>
                 <div style={{ fontFamily: 'sans-serif', padding: '24px', paddingRight: '150px', backgroundColor: '#F7F6F2', width: '100%', boxSizing: 'border-box', position: 'center', }}>
-                    <SelectMajor selectedMajor={selectedMajor} onMajorChange={setSelectedMajor} />
+                    <SelectMajor selectedMajor={selectedMajor} onMajorChange={handleMajorChange} />
 
                     <div style={{ width: '100%', boxSizing: 'border-box' }}>
                         <div style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>

@@ -52,6 +52,9 @@ const selectStyles = {
   clearIndicator: (base) => ({ ...base, padding: '4px' }),
 };
 
+let localRowIdCounter = 0;
+const makeLocalRowId = () => `row-${++localRowIdCounter}`;
+
 export default function GpaCalculator() {
   const navigate = useNavigate();
 
@@ -61,6 +64,7 @@ export default function GpaCalculator() {
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [hiddenPendingIds, setHiddenPendingIds] = useState(new Set());
 
   useEffect(() => {
     fetchModuleList()
@@ -84,10 +88,16 @@ export default function GpaCalculator() {
       try {
         const records = await loadUserModuleRecords(user.id);
         if (cancelled) return;
-        setRows(records.map((record) => ({
+        const withMeta = records.map((record) => ({
           ...record,
           creditUnresolved: Boolean(record.moduleCode) && record.moduleCredit === null,
-        })));
+          previousGrade: record.grade,
+          _localId: makeLocalRowId(),
+        }));
+        setHiddenPendingIds(new Set(
+          withMeta.filter((row) => !isUserModuleRecordComplete(row)).map((row) => row._localId)
+        ));
+        setRows(withMeta);
       } catch (error) {
         console.error('Error loading module records:', error);
       }
@@ -98,13 +108,25 @@ export default function GpaCalculator() {
     return () => { cancelled = true; };
   }, []);
 
-  const addRow = () => setRows([...rows, { moduleCode: '', grade: null, moduleCredit: null, isSu: false, semesterTaken: null, creditUnresolved: false }]);
+  const addRow = () => setRows([...rows, {
+    moduleCode: '', grade: null, moduleCredit: null, isSu: false, semesterTaken: null,
+    creditUnresolved: false, previousGrade: null, _localId: makeLocalRowId(),
+  }]);
   const removeRow = (index) => setRows(rows.filter((_, i) => i !== index));
   const updateRow = (index, key, value) => {
     const next = [...rows];
-    next[index] = key === 'isSu' && value
-      ? { ...next[index], isSu: true, grade: null }
-      : { ...next[index], [key]: value };
+    const current = next[index];
+
+    if (key === 'isSu') {
+      next[index] = value
+        ? { ...current, isSu: true, previousGrade: current.grade ?? current.previousGrade ?? null, grade: null }
+        : { ...current, isSu: false, grade: current.previousGrade ?? null };
+    } else if (key === 'grade') {
+      next[index] = { ...current, grade: value, previousGrade: value };
+    } else {
+      next[index] = { ...current, [key]: value };
+    }
+
     setRows(next);
   };
 
@@ -173,6 +195,12 @@ export default function GpaCalculator() {
       suMcs: suMcTotal,
     };
   }, [rows]);
+
+  const visibleRows = useMemo(() => (
+    rows
+      .map((row, index) => ({ row, index }))
+      .filter(({ row }) => isUserModuleRecordComplete(row) || !hiddenPendingIds.has(row._localId))
+  ), [rows, hiddenPendingIds]);
 
   const gpaTrend = useMemo(() => {
     const bySemester = new Map();
@@ -278,7 +306,12 @@ export default function GpaCalculator() {
 
         <div className="bg-white rounded-2xl border border-gray-200 px-7 py-6 mb-6">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="text-base font-bold text-gray-800">Modules Taken</h3>
+            <div>
+              <h3 className="text-base font-bold text-gray-800">Modules Taken</h3>
+              <p className="text-xs text-gray-400 mt-1">
+                Only graded modules are shown here — manage ungraded ones in your Profile.
+              </p>
+            </div>
             <button
               onClick={addRow}
               disabled={loading}
@@ -292,13 +325,13 @@ export default function GpaCalculator() {
             <p className="text-sm text-gray-400">Loading your modules…</p>
           )}
 
-          {!loading && rows.length === 0 && (
+          {!loading && visibleRows.length === 0 && (
             <p className="text-sm text-gray-400">
               No modules yet. Add modules here, or head to your Profile page to key in past grades.
             </p>
           )}
 
-          {rows.length > 0 && (
+          {visibleRows.length > 0 && (
             <div className="grid grid-cols-[1fr_7.5rem_5rem_6.5rem_3.5rem_2rem] gap-3 px-1 mb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Module</span>
               <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Sem</span>
@@ -310,8 +343,12 @@ export default function GpaCalculator() {
           )}
 
           <div className="space-y-3">
-            {rows.map((row, index) => (
-              <div key={index} className={`grid grid-cols-[1fr_7.5rem_5rem_6.5rem_3.5rem_2rem] gap-3 items-center ${isUserModuleRecordComplete(row) ? '' : 'opacity-50'}`}>
+            {visibleRows.map(({ row, index }) => {
+              const isPending = !isUserModuleRecordComplete(row);
+              const suDisabled = !row.isSu && !row.semesterTaken;
+
+              return (
+              <div key={row._localId ?? index} className={`grid grid-cols-[1fr_7.5rem_5rem_6.5rem_3.5rem_2rem] gap-3 items-center rounded-xl px-1 py-1 ${isPending ? 'bg-amber-50 border border-amber-200' : ''}`}>
                 <Select
                   options={moduleOptions}
                   styles={selectStyles}
@@ -323,7 +360,7 @@ export default function GpaCalculator() {
                       ? moduleOptions.find((option) => option.value === row.moduleCode)
                         || { value: row.moduleCode, label: row.title ? `${row.moduleCode} - ${row.title}` : row.moduleCode }
                       : null
-                      
+
                   }
                   onChange={(selected) => handleModuleSelect(index, selected)}
                 />
@@ -351,21 +388,27 @@ export default function GpaCalculator() {
                     {row.moduleCredit ?? '—'}
                   </div>
                 )}
-                <Select
-                  options={GRADES}
-                  styles={selectStyles}
-                  placeholder="Grade"
-                  isDisabled={!!row.isSu}
-                  value={row.grade ? { value: row.grade, label: row.grade } : null}
-                  onChange={(selected) => updateRow(index, 'grade', selected?.value || '')}
-                />
+                {row.isSu ? (
+                  <div className="w-full h-[48px] rounded-xl border border-gray-300 bg-white flex items-center justify-center text-sm font-semibold text-gray-700">
+                    S
+                  </div>
+                ) : (
+                  <Select
+                    options={GRADES}
+                    styles={selectStyles}
+                    placeholder="Grade"
+                    value={row.grade ? { value: row.grade, label: row.grade } : null}
+                    onChange={(selected) => updateRow(index, 'grade', selected?.value || '')}
+                  />
+                )}
                 <div className="flex justify-center">
                   <input
                     type="checkbox"
                     checked={!!row.isSu}
+                    disabled={suDisabled}
                     onChange={(e) => updateRow(index, 'isSu', e.target.checked)}
-                    title="Mark as S/U (excluded from GPA)"
-                    className="h-5 w-5 rounded accent-[#2564F8] cursor-pointer"
+                    title={suDisabled ? 'Select a semester before marking S/U' : 'Mark as S/U (excluded from GPA)'}
+                    className="h-5 w-5 rounded accent-[#2564F8] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   />
                 </div>
                 <button
@@ -377,7 +420,8 @@ export default function GpaCalculator() {
                   <LuTrash2 size={18} />
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

@@ -610,14 +610,16 @@ export default function ProgressTracker() {
                                     />
                                 )}
 
-                                <div
-                                    onClick={() => navigate('/moduleTree')}
-                                    className="mt-2 bg-white rounded-2xl border border-gray-200 px-7 py-5 text-center cursor-pointer hover:border-[#2564F8] transition"
-                                >
-                                    <p className="text-sm font-semibold text-gray-700">
-                                        Incomplete modTree? <span className="text-[#2564F8]">Continue planning here →</span>
-                                    </p>
-                                </div>
+                                {hasCompletedModTree && (
+                                    <div
+                                        onClick={() => navigate('/moduleTree')}
+                                        className="mt-2 bg-white rounded-2xl border border-gray-200 px-7 py-5 text-center cursor-pointer hover:border-[#2564F8] transition"
+                                    >
+                                        <p className="text-sm font-semibold text-gray-700">
+                                            Incomplete modTree? <span className="text-[#2564F8]">Continue planning here →</span>
+                                        </p>
+                                    </div>
+                                )}
 
                         <section
                             style={{
