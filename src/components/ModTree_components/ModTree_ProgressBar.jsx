@@ -28,7 +28,7 @@ export default function ModTreeProgressBar({ completed = 0, total = 0 }) {
                     ModTree completion
                 </div>
                 <div style={{ fontSize: '12px', fontWeight: '600', color: '#5F5E5A' }}>
-                    {safeCompleted} / {safeTotal} components
+                    {safeCompleted} / {safeTotal} modules
                 </div>
             </div>
 

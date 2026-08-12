@@ -4,15 +4,8 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import Insights from '../../src/components/SentAnalysis/Insights';
 import * as api from '../../src/utils/api';
 
-// This project's vitest config doesn't set `globals: true`, so React Testing
-// Library's automatic afterEach(cleanup) never registers — do it explicitly
-// so each test in this file starts from an empty DOM.
 afterEach(cleanup);
 
-// Insights.jsx uses the real useModuleSearch hook; mocking api.ts (the same
-// boundary useModuleSearch.test.js mocks) keeps this an integration test of
-// the page + hook + child components working together, without a real
-// network/Supabase call.
 vi.mock('../../src/utils/api', () => ({
   fetchModuleList: vi.fn(),
   fetchModule: vi.fn(),

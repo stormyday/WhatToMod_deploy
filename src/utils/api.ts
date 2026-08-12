@@ -348,9 +348,6 @@ export async function fetchProfessorProfile(name: string, fromModuleCode?: strin
   const term = name.trim();
   const target = term.toLowerCase();
 
-  // module_professors is only consulted for alternate-name (moniker) matches now —
-  // it's a bounded, filtered query so it can't hit PostgREST's default 1000-row cap
-  // the way an unfiltered `.select()` over the whole table would.
   const [containsRes, reviewMentions] = await Promise.all([
     term.length >= 3
       ? supabase.from("module_professors").select(PROFESSOR_MENTION_COLUMNS).ilike("professor_name", `%${term}%`).limit(2000)
@@ -360,9 +357,6 @@ export async function fetchProfessorProfile(name: string, fromModuleCode?: strin
 
   if (containsRes.error) console.error("[api] Error fetching related professor mentions:", containsRes.error.message);
 
-  // The reviews that literally mention this name are the source of truth for
-  // "Teaches" — it's the same text the name was extracted from in the first
-  // place, so unlike module_professors it can't lag behind or get capped.
   const moduleMentionCounts = new Map<string, number>();
   const moduleSemesters = new Map<string, Set<string>>();
   for (const r of reviewMentions) {
@@ -373,8 +367,6 @@ export async function fetchProfessorProfile(name: string, fromModuleCode?: strin
     }
   }
 
-  // Guarantee the module the user actually clicked through from always shows,
-  // even on the off chance the name isn't verbatim in any single review's text.
   if (fromModuleCode && !moduleMentionCounts.has(fromModuleCode)) {
     moduleMentionCounts.set(fromModuleCode, 0);
   }
@@ -399,8 +391,6 @@ export async function fetchProfessorProfile(name: string, fromModuleCode?: strin
       mentionCount: p.mention_count,
     }));
 
-  // A module already confirmed via review text shouldn't also show up as a
-  // "maybe" under a differently-spelled name.
   const confirmedCodes = new Set(modules.map((m) => m.moduleCode));
   const relatedModules = groupRelatedMentions(relatedRows).filter((m) => !confirmedCodes.has(m.moduleCode));
 

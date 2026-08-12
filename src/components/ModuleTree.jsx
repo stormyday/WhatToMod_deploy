@@ -26,7 +26,7 @@ import SelectedBasket from './ModTree_components/ModTree_SelectionBasket';
 import AcadsPlanner from './AcadsPlanner/ModTree_AcadsPlanner';
 import { ModTreeSearchBar } from './ModTree_components/ModTree_SearchBar';
 import { useModTreeModuleSearch } from '../hooks/useModTreeModuleSearch';
-import { addBlankModuleRecords } from '../utils/userModuleRecords';
+import { addBlankModuleRecords, removeStaleBlankModuleRecords } from '../utils/userModuleRecords';
 import ModReccoProvider from './modRecco/ModReccoProvider';
 import GradeReccoProvider from './modRecco/GradeReccoProvider';
 import "@fontsource/league-spartan/700.css";
@@ -347,9 +347,22 @@ export default function ModuleTreePage() {
         });
         const nextAcadsPlannerState = normalizeSavedAcadsPlannerState({ plannerModules });
 
+        const { data: persistedProfile } = await supabase
+            .from('profiles')
+            .select('modtree_state')
+            .eq('id', user.id)
+            .maybeSingle();
+        const persistedSelectedMods = Array.isArray(persistedProfile?.modtree_state?.selectedMods)
+            ? persistedProfile.modtree_state.selectedMods.map(normalizeModuleCode).filter(Boolean)
+            : [];
+        const deselectedMods = persistedSelectedMods.filter((code) => !selectedMods.includes(code));
+
         let savedRecords;
         try {
-            savedRecords = await addBlankModuleRecords(user.id, selectedMods);
+            [savedRecords] = await Promise.all([
+                addBlankModuleRecords(user.id, selectedMods),
+                removeStaleBlankModuleRecords(user.id, deselectedMods),
+            ]);
         } catch (recordError) {
             console.error('Error saving selected modules:', recordError);
             setSavingProfile(false);
@@ -519,12 +532,12 @@ export default function ModuleTreePage() {
                     <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginTop: '18px' }}>
                         {saveStatus === 'success' && (
                             <div style={{ color: '#166534', backgroundColor: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '10px 14px', fontSize: '13px', fontWeight: '600' }}>
-                                Saved selected modules and Acads Planner state to your profile.
+                                Saved successfully!
                             </div>
                         )}
                         {saveStatus === 'partial' && (
-                            <div style={{ color: '#92400e', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px', padding: '10px 14px', fontSize: '13px', fontWeight: '600' }}>
-                                Saved NUS module selections and planner state. Requirement placeholders were kept in ModTree but not added as taken modules.
+                            <div style={{ color: '#166534', backgroundColor: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '10px 14px', fontSize: '13px', fontWeight: '600' }}>
+                                Saved successfully!
                             </div>
                         )}
                         {saveStatus === 'error' && (

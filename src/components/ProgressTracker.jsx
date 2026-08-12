@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { UserAuth } from '../context/AuthContext';
 import { normalizeModuleCode } from './ModTree_components/modTreeModuleData';
+import { buildDatabase } from './ModuleTree.helpers';
 import ModuleTree from './ModTree_components/ModTree_ModTree';
 import ModuleButton from './ModTree_components/ModTree_ModButton';
 import ModTreeProgressBar from './ModTree_components/ModTree_ProgressBar';
-import { loadUserModuleRecords } from '../utils/userModuleRecords';
+import { isUserModuleRecordComplete, loadUserModuleRecords } from '../utils/userModuleRecords';
 import "@fontsource/league-spartan/700.css";
 
 const SECTION_KINDS = ['all', 'major', 'second_major', 'minor', 'level', 'pool', 'custom'];
@@ -103,7 +104,10 @@ function normalizeSavedModTreeState(savedState) {
 
 function getTakenModuleCodes(records) {
     const recordCodes = Array.isArray(records)
-        ? records.map((row) => normalizeModuleCode(row?.moduleCode ?? row?.module_code)).filter(Boolean)
+        ? records
+            .filter(isUserModuleRecordComplete)
+            .map((row) => normalizeModuleCode(row?.moduleCode ?? row?.module_code))
+            .filter(Boolean)
         : [];
 
     return [...new Set(recordCodes)].sort((a, b) => a.localeCompare(b));
@@ -347,10 +351,21 @@ export default function ProgressTracker() {
         filteredModules.filter((mod) => getModuleDisplayLevel(mod, orGroupDisplayLevels) === lvl)
     ), [filteredModules, orGroupDisplayLevels]);
 
-    const progressMetrics = useMemo(() => ({
-        completedCount: selectedMods.filter((code) => takenModuleCodes.includes(code)).length,
-        totalCount: selectedMods.length,
-    }), [selectedMods, takenModuleCodes]);
+    const currentTreeModuleCodes = useMemo(() => {
+        const treeDatabase = buildDatabase(filteredModules);
+        return new Set([
+            ...Object.keys(treeDatabase),
+            ...customModules.map((module) => normalizeModuleCode(module.moduleCode)),
+        ]);
+    }, [filteredModules, customModules]);
+
+    const progressMetrics = useMemo(() => {
+        const relevantSelectedMods = selectedMods.filter((code) => currentTreeModuleCodes.has(code));
+        return {
+            completedCount: relevantSelectedMods.filter((code) => takenModuleCodes.includes(code)).length,
+            totalCount: relevantSelectedMods.length,
+        };
+    }, [selectedMods, takenModuleCodes, currentTreeModuleCodes]);
 
     const moduleTreeState = useMemo(
         () => ({ selectedMajor, selectedMods, customModules, plannerModules: {} }),
@@ -567,9 +582,7 @@ export default function ProgressTracker() {
                                         </p>
                                         <button
                                             type="button"
-                                            onClick={() => navigate('/moduleTree', {
-                                                state: { moduleTreeState: { selectedMajor } },
-                                            })}
+                                            onClick={() => navigate('/moduleTree')}
                                             style={{
                                                 padding: '10px 20px',
                                                 borderRadius: '999px',
@@ -598,9 +611,7 @@ export default function ProgressTracker() {
                                 )}
 
                                 <div
-                                    onClick={() => navigate('/moduleTree', {
-                                        state: { moduleTreeState: { selectedMajor } },
-                                    })}
+                                    onClick={() => navigate('/moduleTree')}
                                     className="mt-2 bg-white rounded-2xl border border-gray-200 px-7 py-5 text-center cursor-pointer hover:border-[#2564F8] transition"
                                 >
                                     <p className="text-sm font-semibold text-gray-700">
@@ -627,6 +638,9 @@ export default function ProgressTracker() {
                                     </div>
                                     <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
                                         Drag and drop modules into the respective major/minor baskets! Double-counting is permitted.
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '6px', fontStyle: 'italic' }}>
+                                        Only modules with grades and semesters inputted will be shown below.
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>

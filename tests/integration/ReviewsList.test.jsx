@@ -2,9 +2,6 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { ReviewsList } from '../../src/components/SentAnalysis/ReviewsList';
 
-// This project's vitest config doesn't set `globals: true`, so React Testing
-// Library's automatic afterEach(cleanup) never registers — do it explicitly
-// so each test in this file starts from an empty DOM.
 afterEach(cleanup);
 
 function makeReview(id, text, overrides = {}) {
@@ -71,8 +68,6 @@ describe('ReviewsList', () => {
     expect(document.querySelectorAll('.review-card')).toHaveLength(15);
 
     fireEvent.click(screen.getByRole('button', { name: 'Workload' }));
-    // Same 15 reviews all match "workload", but the page counter should have
-    // reset to 1, so only the first page is visible again.
     expect(document.querySelectorAll('.review-card')).toHaveLength(10);
   });
 

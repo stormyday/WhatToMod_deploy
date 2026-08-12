@@ -7,6 +7,7 @@ import {
   SEMESTERS,
   SEMESTER_OPTIONS,
   fetchModuleCredits,
+  isUserModuleRecordComplete,
   loadUserModuleRecords,
   replaceUserModuleRecords,
 } from '../utils/userModuleRecords';
@@ -157,10 +158,10 @@ export default function GpaCalculator() {
   const { cap, countedMcs, suMcs } = useMemo(() => {
     let points = 0, mcs = 0, suMcTotal = 0;
     for (const row of rows) {
+      if (!isUserModuleRecordComplete(row)) continue;
       const mc = Number(row.moduleCredit);
       if (!Number.isFinite(mc) || mc <= 0) continue;
       if (row.isSu) { suMcTotal += mc; continue; }
-      if (!row.grade) continue;
       const gp = GRADE_POINTS[row.grade];
       if (gp === undefined) continue;
       points += gp * mc;
@@ -196,6 +197,7 @@ export default function GpaCalculator() {
       cumPoints += bucket.points;
       cumMcs += bucket.mcs;
       trend.push({ semester, label: semester.toUpperCase(), gpa: cumPoints / cumMcs });
+
     }
     return trend;
   }, [rows]);
@@ -235,6 +237,7 @@ export default function GpaCalculator() {
         <button
           onClick={() => navigate("/dashboard")}
           className="text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl px-4 py-3 transition"
+
         >
           ← Back
         </button>
@@ -308,17 +311,19 @@ export default function GpaCalculator() {
 
           <div className="space-y-3">
             {rows.map((row, index) => (
-              <div key={index} className="grid grid-cols-[1fr_7.5rem_5rem_6.5rem_3.5rem_2rem] gap-3 items-center">
+              <div key={index} className={`grid grid-cols-[1fr_7.5rem_5rem_6.5rem_3.5rem_2rem] gap-3 items-center ${isUserModuleRecordComplete(row) ? '' : 'opacity-50'}`}>
                 <Select
                   options={moduleOptions}
                   styles={selectStyles}
                   isLoading={modulesLoading}
                   placeholder="Select module..."
                   value={
+
                     row.moduleCode
                       ? moduleOptions.find((option) => option.value === row.moduleCode)
                         || { value: row.moduleCode, label: row.title ? `${row.moduleCode} - ${row.title}` : row.moduleCode }
                       : null
+                      
                   }
                   onChange={(selected) => handleModuleSelect(index, selected)}
                 />

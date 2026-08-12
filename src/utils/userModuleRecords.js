@@ -80,6 +80,12 @@ export function normalizeUserModuleRecord(record = {}) {
   };
 }
 
+export function isUserModuleRecordComplete(record) {
+  const hasGrade = Boolean(record?.grade) || Boolean(record?.isSu ?? record?.is_su);
+  const hasSemester = Boolean(record?.semesterTaken ?? record?.semester_taken);
+  return hasGrade && hasSemester;
+}
+
 export function normalizeRecordList(records = []) {
   const recordsByModuleCode = new Map();
 
@@ -212,4 +218,31 @@ export async function addBlankModuleRecords(userId, moduleCodes, client = supaba
   }
 
   return { savedCodes, skippedCodes };
+}
+
+export async function removeStaleBlankModuleRecords(userId, moduleCodes, client = supabase) {
+  const candidateCodes = [...new Set(moduleCodes.map(normalizeCatalogModuleCode).filter(Boolean))];
+  if (candidateCodes.length === 0) return { removedCodes: [] };
+
+  const { data: existing, error: existingError } = await client
+    .from('user_module_records')
+    .select('module_code,grade,is_su,semester_taken')
+    .eq('user_id', userId)
+    .in('module_code', candidateCodes);
+  if (existingError) throw existingError;
+
+  const blankCodes = (existing ?? [])
+    .filter((row) => !row.grade && !row.is_su && !row.semester_taken)
+    .map((row) => row.module_code);
+
+  if (blankCodes.length > 0) {
+    const { error } = await client
+      .from('user_module_records')
+      .delete()
+      .eq('user_id', userId)
+      .in('module_code', blankCodes);
+    if (error) throw error;
+  }
+
+  return { removedCodes: blankCodes };
 }

@@ -1,8 +1,3 @@
-"""
-NUSMods Sentiment Analysis Microservice
-Run: uvicorn main:app --port 8000 --reload
-"""
-
 from __future__ import annotations
 
 import re

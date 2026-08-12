@@ -3,9 +3,6 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { useModuleSearch } from '../../src/hooks/useModuleSearch';
 import * as api from '../../src/utils/api';
 
-// Integration test: exercises the hook together with the api.ts module
-// boundary (mocked here so no real network/Supabase call is made), covering
-// the query -> suggestions filtering effect and the loadModule success/error paths.
 vi.mock('../../src/utils/api', () => ({
   fetchModuleList: vi.fn(),
   fetchModule: vi.fn(),

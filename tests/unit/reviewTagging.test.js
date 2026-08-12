@@ -45,15 +45,6 @@ describe('extractRelevantContent', () => {
     expect(extractRelevantContent(text, 'NotARealFilter')).toBe(text);
   });
 
-  // BUG (pre-existing, not introduced by this test suite): the block-splitting
-  // regex `/(?=\n- |\n\n|\n*)/g` includes `\n*`, which is satisfiable by a
-  // zero-length match at every position. That makes `text.split(...)` cut the
-  // string into individual characters instead of paragraphs, so no keyword
-  // regex (all 2+ characters) can ever match a "block", `matchingBlocks` is
-  // always empty, and the function silently falls back to the full text for
-  // *every* filter. This test documents that current, real behavior rather
-  // than the evidently-intended one (narrowing to matching paragraphs) —
-  // see the chat writeup for the suggested fix.
   it('currently returns the full text unchanged for every filter, due to a block-splitting bug', () => {
     expect(extractRelevantContent(text, 'Workload')).toBe(text);
   });

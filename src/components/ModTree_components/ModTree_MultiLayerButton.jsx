@@ -11,8 +11,6 @@ import {
 function buildPillarDropdownShape(node) {
     return {
         ...node.rawNode,
-        // `pillarName` nodes are structural wrappers, not lookup keys; the dropdown only
-        // needs the label and child module options.
         label: node.label,
         options: Array.isArray(node.childrenGroup?.nodes)
             ? node.childrenGroup.nodes.map((child) => ({

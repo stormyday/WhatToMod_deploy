@@ -5,6 +5,7 @@ import { supabase } from '../supabaseClient';
 import {
   GRADE_VALUES,
   SEMESTER_OPTIONS,
+  isUserModuleRecordComplete,
   loadUserModuleRecords,
   replaceUserModuleRecords,
 } from '../utils/userModuleRecords';
@@ -141,13 +142,22 @@ export default function ProfilePage() {
     fetchProfile();
   }, []);
 
-  const addGradeRow = () => setGrades([...grades, { moduleCode: '', grade: null, isSu: false, semesterTaken: null }]);
+  const addGradeRow = () => setGrades([...grades, { moduleCode: '', grade: null, isSu: false, semesterTaken: null, previousGrade: null }]);
   const removeGradeRow = (index) => setGrades(grades.filter((_, i) => i !== index));
   const updateGradeRow = (index, key, value) => {
     const next = [...grades];
-    next[index] = key === 'isSu' && value
-      ? { ...next[index], isSu: true, grade: null }
-      : { ...next[index], [key]: value };
+    const current = next[index];
+
+    if (key === 'isSu') {
+      next[index] = value
+        ? { ...current, isSu: true, previousGrade: current.grade ?? current.previousGrade ?? null, grade: null }
+        : { ...current, isSu: false, grade: current.previousGrade ?? null };
+    } else if (key === 'grade') {
+      next[index] = { ...current, grade: value, previousGrade: value };
+    } else {
+      next[index] = { ...current, [key]: value };
+    }
+
     setGrades(next);
   };
 
@@ -288,63 +298,82 @@ export default function ProfilePage() {
           )}
 
           <div className="space-y-3">
-            {grades.map((item, index) => (
-              <div key={index} className="flex items-center gap-3">
-                <div className="flex-1">
-                  <Select
-                    options={moduleOptions}
-                    styles={selectStyles}
-                    isLoading={modulesLoading}
-                    placeholder="Select module..."
-                    value={
-                      item.moduleCode
-                        ? moduleOptions.find((option) => option.value === item.moduleCode)
-                          || { value: item.moduleCode, label: item.title ? `${item.moduleCode} - ${item.title}` : item.moduleCode }
-                        : null
-                    }
-                    onChange={(selected) => handleGradeModuleSelect(index, selected)}
-                  />
+            {grades.map((item, index) => {
+              const isPending = !isUserModuleRecordComplete(item);
+              const suDisabled = !item.isSu && !item.semesterTaken;
+
+              return (
+                <div key={index} className={`flex items-center gap-3 rounded-xl px-2 py-1.5 transition ${isPending ? 'bg-amber-50 border border-amber-200' : ''}`}>
+                  <div className="flex-1">
+                    <Select
+                      options={moduleOptions}
+                      styles={selectStyles}
+                      isLoading={modulesLoading}
+                      placeholder="Select module..."
+                      value={
+                        item.moduleCode
+                          ? moduleOptions.find((option) => option.value === item.moduleCode)
+                            || { value: item.moduleCode, label: item.title ? `${item.moduleCode} - ${item.title}` : item.moduleCode }
+                          : null
+                      }
+                      onChange={(selected) => handleGradeModuleSelect(index, selected)}
+                    />
+                  </div>
+                  <div className="w-32 shrink-0">
+                    <Select
+                      options={SEMESTER_OPTIONS}
+                      styles={selectStyles}
+                      placeholder="Sem"
+                      isClearable
+                      value={item.semesterTaken ? SEMESTER_OPTIONS.find((o) => o.value === item.semesterTaken) : null}
+                      onChange={(selected) => updateGradeRow(index, 'semesterTaken', selected?.value || null)}
+                    />
+                  </div>
+                  <div className="w-28 shrink-0">
+                    {item.isSu ? (
+                      <div className="w-full h-[54px] rounded-xl border border-gray-300 bg-white flex items-center justify-center text-sm font-semibold text-gray-700">
+                        S
+                      </div>
+                    ) : (
+                      <Select
+                        options={GRADES}
+                        styles={selectStyles}
+                        placeholder="Grade"
+                        value={item.grade ? { value: item.grade, label: item.grade } : null}
+                        onChange={(selected) => updateGradeRow(index, 'grade', selected?.value || '')}
+                      />
+                    )}
+                  </div>
+                  <label
+                    className={`flex items-center gap-1.5 text-xs font-bold text-gray-600 shrink-0 ${suDisabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                    title={suDisabled ? 'Select a semester before marking S/U' : undefined}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={Boolean(item.isSu)}
+                      disabled={suDisabled}
+                      onChange={(event) => updateGradeRow(index, 'isSu', event.target.checked)}
+                      className="h-4 w-4 rounded accent-[#2564F8] disabled:cursor-not-allowed"
+                    />
+                    S/U
+                  </label>
+                  <button
+                    onClick={() => removeGradeRow(index)}
+                    className="text-gray-400 hover:text-red-500 transition px-2 text-lg shrink-0"
+                    aria-label="Remove module"
+                    title="Remove module"
+                  >
+                    ×
+                  </button>
                 </div>
-                <div className="w-32 shrink-0">
-                  <Select
-                    options={SEMESTER_OPTIONS}
-                    styles={selectStyles}
-                    placeholder="Sem"
-                    isClearable
-                    value={item.semesterTaken ? SEMESTER_OPTIONS.find((o) => o.value === item.semesterTaken) : null}
-                    onChange={(selected) => updateGradeRow(index, 'semesterTaken', selected?.value || null)}
-                  />
-                </div>
-                <div className="w-28 shrink-0">
-                  <Select
-                    options={GRADES}
-                    styles={selectStyles}
-                    placeholder="Grade"
-                    isDisabled={item.isSu}
-                    value={item.grade ? { value: item.grade, label: item.grade } : null}
-                    onChange={(selected) => updateGradeRow(index, 'grade', selected?.value || '')}
-                  />
-                </div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-gray-600 shrink-0">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(item.isSu)}
-                    onChange={(event) => updateGradeRow(index, 'isSu', event.target.checked)}
-                    className="h-4 w-4 rounded accent-[#2564F8]"
-                  />
-                  S/U
-                </label>
-                <button
-                  onClick={() => removeGradeRow(index)}
-                  className="text-gray-400 hover:text-red-500 transition px-2 text-lg shrink-0"
-                  aria-label="Remove module"
-                  title="Remove module"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
+          {grades.some((item) => !isUserModuleRecordComplete(item)) && (
+            <p className="text-xs text-gray-400 mt-3">
+              Highlighted modules need a semester and grade (or S/U) before they count toward your GPA or Progress Tracker.
+            </p>
+          )}
         </div>
 
         {saveStatus === 'success' && (
